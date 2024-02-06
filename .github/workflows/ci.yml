@@ -1,0 +1,57 @@
+name: Continuous Integration
+
+on:
+  push:
+    tags:
+      - v*
+    branches:
+      - master
+      - main
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  linters:
+    name: Run linters
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.21'
+          cache-dependency-path: |
+            go.sum
+            test/go.sum
+      - name: Lint .
+        uses: golangci/golangci-lint-action@v3
+        with:
+          version: v1.56
+          # Disable caching as a workaround for https://github.com/golangci/golangci-lint-action/issues/135.
+          # The line can be removed once the golangci-lint issue is resolved.
+          skip-pkg-cache: true
+      - name: Lint other modules
+        run: go list -m -f '{{.Dir}}/...' | golangci-lint run
+
+  unit-tests:
+    name: Run unit tests
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        go: ['1.21']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ matrix.go }}
+      - name: Test
+        run: go list -m -f '{{.Dir}}/...' | xargs go test -race -coverprofile=cover.out -coverpkg=./...
+
+      - name: Collect coverage
+        run: go tool cover -html=cover.out -o cover.html
+
+      - name: Upload coverage to codecov.io
+        uses: codecov/codecov-action@v4
+        env: 
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
