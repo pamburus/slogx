@@ -1,0 +1,350 @@
+// Package slogx provides extensions to the [slog] package.
+// It focuses on performance and simplicity.
+// Only functions working with [slog.Attr] are provided.
+// Any slower alternatives are not supported.
+package slogx
+
+import (
+	"context"
+	"log/slog"
+	"runtime"
+	"time"
+)
+
+// New returns a new [Logger] with the given handler.
+func New(handler slog.Handler) *Logger {
+	return &Logger{
+		handler: handler,
+		src:     true,
+	}
+}
+
+// NewContextLogger returns a new [ContextLogger] with the given handler.
+func NewContextLogger(handler slog.Handler) *ContextLogger {
+	return &ContextLogger{
+		handler: handler,
+		src:     true,
+	}
+}
+
+// Default returns a new [Logger] with the default handler from [slog.Default].
+func Default() *Logger {
+	return New(defaultHandler())
+}
+
+// With returns a new [Logger] based on [Default] with the given attributes.
+func With(attrs ...slog.Attr) *Logger {
+	return Default().With(attrs...)
+}
+
+// WithGroup returns a new [Logger] based on [Default] with the given group.
+func WithGroup(group string) *Logger {
+	return Default().WithGroup(group)
+}
+
+// WithName returns a new [Logger] based on [Default] with the given name.
+// WithName requires the handler to implement [HandlerWithName], otherwise it will do nothing.
+func WithName(name string) *Logger {
+	return Default().WithName(name)
+}
+
+// Debug logs a message at the debug level.
+func Debug(msg string, attrs ...slog.Attr) {
+	logAttrs(context.Background(), defaultHandler(), true, slog.LevelDebug, msg, attrs, 0)
+}
+
+// Info logs a message at the info level.
+func Info(msg string, attrs ...slog.Attr) {
+	logAttrs(context.Background(), defaultHandler(), true, slog.LevelInfo, msg, attrs, 0)
+}
+
+// Warn logs a message at the warn level.
+func Warn(msg string, attrs ...slog.Attr) {
+	logAttrs(context.Background(), defaultHandler(), true, slog.LevelWarn, msg, attrs, 0)
+}
+
+// Error logs a message at the error level.
+func Error(msg string, attrs ...slog.Attr) {
+	logAttrs(context.Background(), defaultHandler(), true, slog.LevelError, msg, attrs, 0)
+}
+
+// Log logs a message at the given level.
+func Log(level slog.Level, msg string, attrs ...slog.Attr) {
+	logAttrs(context.Background(), defaultHandler(), true, level, msg, attrs, 0)
+}
+
+// ---
+
+// Logger is a simple logger that logs to a [slog.Handler].
+// It is an alternative to [slog.Logger] focused on performance and simplicity.
+// It forces to use [slog.Attr] for log attributes and does not support slow alternatives provided by [slog.Logger].
+// It also takes [slog.Attr] in [Logger.With] because it is the only high performance way to add attributes.
+type Logger struct {
+	handler slog.Handler
+	src     bool
+}
+
+// Handler returns the logger's handler.
+func (l *Logger) Handler() slog.Handler {
+	return l.handler
+}
+
+// SlogLogger returns a new [slog.Logger] that logs to the associated handler.
+func (l *Logger) SlogLogger() *slog.Logger {
+	return slog.New(l.handler)
+}
+
+// ContextLogger returns a new [ContextLogger] that takes context in logging methods.
+func (l *Logger) ContextLogger() *ContextLogger {
+	return &ContextLogger{l.handler, l.src}
+}
+
+// Enabled returns true if the given level is enabled.
+func (l *Logger) Enabled(ctx context.Context, level slog.Level) bool {
+	return l.handler.Enabled(ctx, level)
+}
+
+// With returns a new [Logger] with the given attributes.
+func (l *Logger) With(attrs ...slog.Attr) *Logger {
+	if len(attrs) != 0 {
+		l = l.clone()
+		l.handler = l.handler.WithAttrs(attrs)
+	}
+
+	return l
+}
+
+// WithGroup returns a new [Logger] with the given group.
+func (l *Logger) WithGroup(group string) *Logger {
+	if group != "" {
+		l = l.clone()
+		l.handler = l.handler.WithGroup(group)
+	}
+
+	return l
+}
+
+// WithName returns a new [Logger] with the given name.
+// WithName requires the handler to implement [HandlerWithName], otherwise it will do nothing.
+func (l *Logger) WithName(name string) *Logger {
+	if name != "" {
+		if h, ok := l.handler.(HandlerWithName); ok {
+			l = l.clone()
+			l.handler = h.WithName(name)
+		}
+	}
+
+	return l
+}
+
+// WithSource returns a new [Logger] that includes the source file and line in the log record if [enabled] is true.
+func (l *Logger) WithSource(enabled bool) *Logger {
+	if l.src != enabled {
+		l = l.clone()
+		l.src = enabled
+	}
+
+	return l
+}
+
+// Debug logs a message at the debug level.
+func (l *Logger) Debug(msg string, attrs ...slog.Attr) {
+	logAttrs(context.Background(), l.handler, l.src, slog.LevelDebug, msg, attrs, 0)
+}
+
+// DebugContext logs a message at the debug level with the given context.
+func (l *Logger) DebugContext(ctx context.Context, msg string, attrs ...slog.Attr) {
+	logAttrs(ctx, l.handler, l.src, slog.LevelDebug, msg, attrs, 0)
+}
+
+// Info logs a message at the info level.
+func (l *Logger) Info(msg string, attrs ...slog.Attr) {
+	logAttrs(context.Background(), l.handler, l.src, slog.LevelInfo, msg, attrs, 0)
+}
+
+// InfoContext logs a message at the info level with the given context.
+func (l *Logger) InfoContext(ctx context.Context, msg string, attrs ...slog.Attr) {
+	logAttrs(ctx, l.handler, l.src, slog.LevelInfo, msg, attrs, 0)
+}
+
+// Warn logs a message at the warn level.
+func (l *Logger) Warn(msg string, attrs ...slog.Attr) {
+	logAttrs(context.Background(), l.handler, l.src, slog.LevelWarn, msg, attrs, 0)
+}
+
+// WarnContext logs a message at the warn level with the given context.
+func (l *Logger) WarnContext(ctx context.Context, msg string, attrs ...slog.Attr) {
+	logAttrs(ctx, l.handler, l.src, slog.LevelWarn, msg, attrs, 0)
+}
+
+// Error logs a message at the error level.
+func (l *Logger) Error(msg string, attrs ...slog.Attr) {
+	logAttrs(context.Background(), l.handler, l.src, slog.LevelError, msg, attrs, 0)
+}
+
+// ErrorContext logs a message at the error level with the given context.
+func (l *Logger) ErrorContext(ctx context.Context, msg string, attrs ...slog.Attr) {
+	logAttrs(ctx, l.handler, l.src, slog.LevelError, msg, attrs, 0)
+}
+
+// Log logs a message at the given level.
+func (l *Logger) Log(level slog.Level, msg string, attrs ...slog.Attr) {
+	logAttrs(context.Background(), l.handler, l.src, level, msg, attrs, 0)
+}
+
+// LogContext logs a message at the given level.
+func (l *Logger) LogContext(ctx context.Context, level slog.Level, msg string, attrs ...slog.Attr) {
+	logAttrs(ctx, l.handler, l.src, level, msg, attrs, 0)
+}
+
+func (l Logger) clone() *Logger {
+	return &l
+}
+
+// ---
+
+// ContextLogger is an alternative to [Logger] having only methods with context for logging messages.
+type ContextLogger struct {
+	handler slog.Handler
+	src     bool
+}
+
+// Logger returns a new [Logger] with the associated handler.
+func (l *ContextLogger) Logger() *Logger {
+	return &Logger{l.handler, l.src}
+}
+
+// Handler returns the associated handler.
+func (l *ContextLogger) Handler() slog.Handler {
+	return l.handler
+}
+
+// SlogLogger returns a new [slog.Logger] that logs to the associated handler.
+func (l *ContextLogger) SlogLogger() *slog.Logger {
+	return slog.New(l.handler)
+}
+
+// Enabled returns true if the given level is enabled.
+func (l *ContextLogger) Enabled(ctx context.Context, level slog.Level) bool {
+	return l.handler.Enabled(ctx, level)
+}
+
+// With returns a new [ContextLogger] with the given attributes.
+func (l *ContextLogger) With(attrs ...slog.Attr) *ContextLogger {
+	if len(attrs) != 0 {
+		l = l.clone()
+		l.handler = l.handler.WithAttrs(attrs)
+	}
+
+	return l
+}
+
+// WithGroup returns a new [ContextLogger] with the given group.
+func (l *ContextLogger) WithGroup(group string) *ContextLogger {
+	if group != "" {
+		l = l.clone()
+		l.handler = l.handler.WithGroup(group)
+	}
+
+	return l
+}
+
+// WithName returns a new [ContextLogger] with the given name.
+// WithName requires the handler to implement [HandlerWithName], otherwise it will do nothing.
+func (l *ContextLogger) WithName(name string) *ContextLogger {
+	if name != "" {
+		if h, ok := l.handler.(HandlerWithName); ok {
+			l = l.clone()
+			l.handler = h.WithName(name)
+		}
+	}
+
+	return l
+}
+
+// WithSource returns a new [ContextLogger] that includes the source file and line in the log record if [enabled] is true.
+func (l *ContextLogger) WithSource(enabled bool) *ContextLogger {
+	if l.src != enabled {
+		l = l.clone()
+		l.src = enabled
+	}
+
+	return l
+}
+
+// Debug logs a message at the debug level.
+func (l *ContextLogger) Debug(ctx context.Context, msg string, attrs ...slog.Attr) {
+	logAttrs(ctx, l.handler, l.src, slog.LevelDebug, msg, attrs, 0)
+}
+
+// Info logs a message at the info level.
+func (l *ContextLogger) Info(ctx context.Context, msg string, attrs ...slog.Attr) {
+	logAttrs(ctx, l.handler, l.src, slog.LevelInfo, msg, attrs, 0)
+}
+
+// Warn logs a message at the warn level.
+func (l *ContextLogger) Warn(ctx context.Context, msg string, attrs ...slog.Attr) {
+	logAttrs(ctx, l.handler, l.src, slog.LevelWarn, msg, attrs, 0)
+}
+
+// Error logs a message at the error level.
+func (l *ContextLogger) Error(ctx context.Context, msg string, attrs ...slog.Attr) {
+	logAttrs(ctx, l.handler, l.src, slog.LevelError, msg, attrs, 0)
+}
+
+// Log logs a message at the given level.
+func (l *ContextLogger) Log(ctx context.Context, level slog.Level, msg string, attrs ...slog.Attr) {
+	logAttrs(ctx, l.handler, l.src, level, msg, attrs, 0)
+}
+
+// LogWithCallerSkip logs a message at the given level with additional skipping of the specified amount of call stack frames.
+func (l *ContextLogger) LogWithCallerSkip(ctx context.Context, skip int, level slog.Level, msg string, attrs ...slog.Attr) {
+	logAttrs(ctx, l.handler, l.src, level, msg, attrs, skip)
+}
+
+func (l ContextLogger) clone() *ContextLogger {
+	return &l
+}
+
+// ---
+
+func logAttrs(ctx context.Context, handler slog.Handler, includeSource bool, level slog.Level, msg string, attrs []slog.Attr, skip int) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+
+	if !handler.Enabled(ctx, level) {
+		return
+	}
+
+	var pcs [1]uintptr
+	if includeSource {
+		runtime.Callers(skip+3, pcs[:])
+	}
+
+	r := slog.NewRecord(time.Now(), level, msg, pcs[0])
+	r.AddAttrs(attrs...)
+
+	_ = handler.Handle(ctx, r)
+}
+
+func defaultHandler() slog.Handler {
+	return slog.Default().Handler()
+}
+
+// ---
+
+type commonLoggerInterface[T any] interface {
+	Handler() slog.Handler
+	SlogLogger() *slog.Logger
+	Enabled(context.Context, slog.Level) bool
+	With(...slog.Attr) T
+	WithGroup(string) T
+	WithName(string) T
+	WithSource(bool) T
+}
+
+var (
+	_ commonLoggerInterface[*Logger]        = (*Logger)(nil)
+	_ commonLoggerInterface[*ContextLogger] = (*ContextLogger)(nil)
+)
