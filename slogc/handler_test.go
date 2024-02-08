@@ -8,7 +8,7 @@ import (
 
 	. "github.com/pamburus/go-tst/tst"
 	"github.com/pamburus/slogx/slogc"
-	"github.com/pamburus/slogx/slogc/mock"
+	"github.com/pamburus/slogx/slogc/internal/mock"
 )
 
 func TestHandlerWithNameAsAttr(tt *testing.T) {
@@ -27,9 +27,9 @@ func TestHandlerWithNameAsAttr(tt *testing.T) {
 		handler := slogc.HandlerWithNameAsAttr(base, "@logger")
 
 		t.Expect(handler.Enabled(context.Background(), slog.LevelInfo)).To(BeTrue())
-		t.Expect(cl.Calls()).To(Equal([]any{
+		t.Expect(cl.Calls()...).To(Equal(
 			mock.HandlerEnabled{Instance: "0", Level: slog.LevelInfo},
-		}))
+		))
 	})
 
 	t.Run("WithEmptyAttrs", func(t Test) {
@@ -64,9 +64,10 @@ func TestHandlerWithNameAsAttr(tt *testing.T) {
 			slog.String("a4", "av4"),
 		)
 
-		handler.Handle(slogc.WithName(ctx, "ab"), record1)
+		err := handler.Handle(slogc.WithName(ctx, "ab"), record1)
+		t.Expect(err).ToNot(HaveOccurred())
 
-		t.Expect(cl.Calls()).To(Equal([]any{
+		t.Expect(cl.Calls()...).To(Equal(
 			mock.HandlerWithAttrs{
 				Instance: "0",
 				Attrs: []mock.Attr{
@@ -97,7 +98,7 @@ func TestHandlerWithNameAsAttr(tt *testing.T) {
 					},
 				},
 			},
-		}))
+		))
 	})
 
 	t.Run("WithoutName", func(t Test) {
@@ -106,8 +107,9 @@ func TestHandlerWithNameAsAttr(tt *testing.T) {
 		handler := slogc.HandlerWithNameAsAttr(base, "@logger")
 		record1 := slog.NewRecord(someTime, slog.LevelInfo, "m1", 0)
 
-		handler.Handle(context.Background(), record1)
-		t.Expect(cl.Calls()).To(Equal([]any{
+		err := handler.Handle(context.Background(), record1)
+		t.Expect(err).ToNot(HaveOccurred())
+		t.Expect(cl.Calls()...).To(Equal(
 			mock.HandlerHandle{
 				Instance: "0",
 				Record: mock.Record{
@@ -118,7 +120,7 @@ func TestHandlerWithNameAsAttr(tt *testing.T) {
 					Attrs:   nil,
 				},
 			},
-		}))
+		))
 	})
 
 	t.Run("WithName", func(t Test) {
@@ -128,8 +130,9 @@ func TestHandlerWithNameAsAttr(tt *testing.T) {
 		handler := slogc.HandlerWithNameAsAttr(base, "@logger")
 		record1 := slog.NewRecord(someTime, slog.LevelInfo, "m1", 0)
 
-		handler.Handle(slogc.WithName(ctx, "b"), record1)
-		t.Expect(cl.Calls()).To(Equal([]any{
+		err := handler.Handle(slogc.WithName(ctx, "b"), record1)
+		t.Expect(err).ToNot(HaveOccurred())
+		t.Expect(cl.Calls()...).To(Equal(
 			mock.HandlerHandle{
 				Instance: "0",
 				Record: mock.Record{
@@ -142,7 +145,7 @@ func TestHandlerWithNameAsAttr(tt *testing.T) {
 					},
 				},
 			},
-		}))
+		))
 	})
 
 	t.Run("WithEmptyName", func(t Test) {
@@ -152,8 +155,9 @@ func TestHandlerWithNameAsAttr(tt *testing.T) {
 		handler := slogc.HandlerWithNameAsAttr(base, "@logger")
 		record1 := slog.NewRecord(someTime, slog.LevelInfo, "m1", 0)
 
-		handler.Handle(slogc.WithName(ctx, ""), record1)
-		t.Expect(cl.Calls()).To(Equal([]any{
+		err := handler.Handle(slogc.WithName(ctx, ""), record1)
+		t.Expect(err).ToNot(HaveOccurred())
+		t.Expect(cl.Calls()...).To(Equal(
 			mock.HandlerHandle{
 				Instance: "0",
 				Record: mock.Record{
@@ -164,7 +168,7 @@ func TestHandlerWithNameAsAttr(tt *testing.T) {
 					Attrs:   nil,
 				},
 			},
-		}))
+		))
 	})
 
 	t.Run("WithAttrsAndName", func(t Test) {
@@ -183,8 +187,9 @@ func TestHandlerWithNameAsAttr(tt *testing.T) {
 			slog.Any("c1", "cv1"),
 			slog.Any("c2", "cv2"),
 		})
-		handler.Handle(slogc.WithName(ctx, "aa"), record1)
-		t.Expect(cl.Calls()).To(Equal([]any{
+		err := handler.Handle(slogc.WithName(ctx, "aa"), record1)
+		t.Expect(err).ToNot(HaveOccurred())
+		t.Expect(cl.Calls()...).To(Equal(
 			mock.HandlerWithAttrs{
 				Instance: "0",
 				Attrs: []mock.Attr{
@@ -206,6 +211,6 @@ func TestHandlerWithNameAsAttr(tt *testing.T) {
 					},
 				},
 			},
-		}))
+		))
 	})
 }
