@@ -68,3 +68,7 @@ issues:
       text: '^dot-imports: '
       paths:
         - '*_test.go'
+    - linters: [staticcheck]
+      text: '^SA1012:'
+      paths:
+        - '*_test.go'

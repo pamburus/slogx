@@ -20,7 +20,8 @@ func TestNewGet(tt *testing.T) {
 		handler := mock.NewHandler(cl)
 		slog.SetDefault(slog.New(handler))
 		ctx := context.Background()
-		logger := slogc.Get(ctx).WithSource(false)
+		ctx = slogc.WithSource(ctx, false)
+		logger := slogc.Get(ctx)
 
 		logger.Info(ctx, "msg")
 		t.Expect(cl.Calls().WithoutTime()...).To(Equal(
@@ -42,7 +43,7 @@ func TestNewGet(tt *testing.T) {
 		cl := mock.NewCallLog()
 		handler := mock.NewHandler(cl)
 		logger := slogx.NewContextLogger(handler).WithSource(false)
-		ctx := slogc.New(context.Background(), logger)
+		ctx := slogc.New(nil, logger)
 
 		t.Run(name, func(t Test) {
 			fn(ctx, cl, t)
