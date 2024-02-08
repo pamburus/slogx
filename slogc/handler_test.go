@@ -1,4 +1,4 @@
-package slogx_test
+package slogc_test
 
 import (
 	"context"
@@ -9,8 +9,7 @@ import (
 	"time"
 
 	. "github.com/pamburus/go-tst/tst"
-
-	"github.com/pamburus/slogx"
+	"github.com/pamburus/slogx/slogc"
 )
 
 func TestHandlerWithNameAsAttr(tt *testing.T) {
@@ -20,13 +19,13 @@ func TestHandlerWithNameAsAttr(tt *testing.T) {
 
 	t.Run("EmptyAttrKey", func(t Test) {
 		handler := &testHandler{}
-		t.Expect(slogx.HandlerWithNameAsAttr(handler, "")).To(Equal(handler))
+		t.Expect(slogc.HandlerWithNameAsAttr(handler, "")).To(Equal(handler))
 	})
 
 	t.Run("Enabled", func(t Test) {
 		callLog := &testCallLog{}
 		base := &testHandler{"0", callLog}
-		handler := slogx.HandlerWithNameAsAttr(base, "@logger")
+		handler := slogc.HandlerWithNameAsAttr(base, "@logger")
 
 		t.Expect(handler.Enabled(context.Background(), slog.LevelInfo)).To(BeTrue())
 		t.Expect(callLog.calls).To(Equal([]any{
@@ -37,7 +36,7 @@ func TestHandlerWithNameAsAttr(tt *testing.T) {
 	t.Run("WithEmptyAttrs", func(t Test) {
 		callLog := &testCallLog{}
 		base := &testHandler{"0", callLog}
-		handler := slogx.HandlerWithNameAsAttr(base, "@logger")
+		handler := slogc.HandlerWithNameAsAttr(base, "@logger")
 
 		t.Expect(handler.WithAttrs(nil)).To(Equal(handler))
 	})
@@ -45,15 +44,55 @@ func TestHandlerWithNameAsAttr(tt *testing.T) {
 	t.Run("WithEmptyGroup", func(t Test) {
 		callLog := &testCallLog{}
 		base := &testHandler{"0", callLog}
-		handler := slogx.HandlerWithNameAsAttr(base, "@logger")
+		handler := slogc.HandlerWithNameAsAttr(base, "@logger")
 
 		t.Expect(handler.WithGroup("")).To(Equal(handler))
+	})
+
+	t.Run("WithGroup", func(t Test) {
+		ctx := context.Background()
+		callLog := &testCallLog{}
+		base := &testHandler{"0", callLog}
+
+		handler := slogc.HandlerWithNameAsAttr(base, "@logger")
+		handler = handler.WithAttrs([]slog.Attr{slog.String("a1", "av1")})
+		handler = handler.WithGroup("g1")
+		handler = handler.WithAttrs([]slog.Attr{slog.String("a2", "av2")})
+
+		record1 := slog.NewRecord(someTime, slog.LevelDebug, "m1", 42)
+		record1.AddAttrs(
+			slog.String("a3", "av3"),
+			slog.String("a4", "av4"),
+		)
+
+		handler.Handle(slogc.WithName(ctx, "ab"), record1)
+
+		t.Expect(callLog.calls).To(Equal([]any{
+			handlerCallWithAttrs{"0", []testAttr{
+				{"a1", "av1"},
+			}},
+			handlerCallWithGroup{"0.1", "g1"},
+			handlerCallWithAttrs{"0.1.2", []testAttr{
+				{"a2", "av2"},
+			}},
+			handlerCallHandle{"0.1.2.3", testRecord{
+				Time:    someTime,
+				Message: "m1",
+				Level:   slog.LevelDebug,
+				PC:      42,
+				Attrs: []testAttr{
+					{"a3", "av3"},
+					{"a4", "av4"},
+					{"@logger", "ab"},
+				},
+			}},
+		}))
 	})
 
 	t.Run("WithoutName", func(t Test) {
 		callLog := &testCallLog{}
 		base := &testHandler{"0", callLog}
-		handler := slogx.HandlerWithNameAsAttr(base, "@logger")
+		handler := slogc.HandlerWithNameAsAttr(base, "@logger")
 
 		record1 := slog.NewRecord(someTime, slog.LevelInfo, "m1", 0)
 
@@ -71,14 +110,14 @@ func TestHandlerWithNameAsAttr(tt *testing.T) {
 	})
 
 	t.Run("WithName", func(t Test) {
+		ctx := slogc.WithName(context.Background(), "a")
 		callLog := &testCallLog{}
 		base := &testHandler{"0", callLog}
-		handler := slogx.HandlerWithNameAsAttr(base, "@logger")
+		handler := slogc.HandlerWithNameAsAttr(base, "@logger")
 
 		record1 := slog.NewRecord(someTime, slog.LevelInfo, "m1", 0)
 
-		handler = handler.(slogx.HandlerWithName).WithName("aa")
-		handler.Handle(context.Background(), record1)
+		handler.Handle(slogc.WithName(ctx, "b"), record1)
 
 		t.Expect(callLog.calls).To(Equal([]any{
 			handlerCallHandle{"0", testRecord{
@@ -86,7 +125,7 @@ func TestHandlerWithNameAsAttr(tt *testing.T) {
 				Message: "m1",
 				Level:   slog.LevelInfo,
 				PC:      0,
-				Attrs:   []testAttr{{"@logger", "aa"}},
+				Attrs:   []testAttr{{"@logger", "a.b"}},
 			}},
 		}))
 
@@ -94,14 +133,14 @@ func TestHandlerWithNameAsAttr(tt *testing.T) {
 	})
 
 	t.Run("WithEmptyName", func(t Test) {
+		ctx := context.Background()
 		callLog := &testCallLog{}
 		base := &testHandler{"0", callLog}
-		handler := slogx.HandlerWithNameAsAttr(base, "@logger")
-		handler = handler.(slogx.HandlerWithName).WithName("")
+		handler := slogc.HandlerWithNameAsAttr(base, "@logger")
 
 		record1 := slog.NewRecord(someTime, slog.LevelInfo, "m1", 0)
 
-		handler.Handle(context.Background(), record1)
+		handler.Handle(slogc.WithName(ctx, ""), record1)
 
 		t.Expect(callLog.calls).To(Equal([]any{
 			handlerCallHandle{"0", testRecord{
@@ -115,9 +154,10 @@ func TestHandlerWithNameAsAttr(tt *testing.T) {
 	})
 
 	t.Run("WithAttrsAndName", func(t Test) {
+		ctx := context.Background()
 		callLog := &testCallLog{}
 		base := &testHandler{"0", callLog}
-		handler := slogx.HandlerWithNameAsAttr(base, "@logger")
+		handler := slogc.HandlerWithNameAsAttr(base, "@logger")
 
 		record1 := slog.NewRecord(someTime, slog.LevelInfo, "m1", 0)
 		record1.AddAttrs(
@@ -130,8 +170,7 @@ func TestHandlerWithNameAsAttr(tt *testing.T) {
 			slog.Any("c2", "cv2"),
 		},
 		)
-		handler = handler.(slogx.HandlerWithName).WithName("aa")
-		handler.Handle(context.Background(), record1)
+		handler.Handle(slogc.WithName(ctx, "aa"), record1)
 
 		t.Expect(callLog.calls).To(Equal([]any{
 			handlerCallWithAttrs{"0", []testAttr{

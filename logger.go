@@ -42,12 +42,6 @@ func WithGroup(group string) *Logger {
 	return Default().WithGroup(group)
 }
 
-// WithName returns a new [Logger] based on [Default] with the given name.
-// WithName requires the handler to implement [HandlerWithName], otherwise it will do nothing.
-func WithName(name string) *Logger {
-	return Default().WithName(name)
-}
-
 // Debug logs a message at the debug level.
 func Debug(msg string, attrs ...slog.Attr) {
 	logAttrs(context.Background(), defaultHandler(), true, slog.LevelDebug, msg, attrs, 0)
@@ -119,19 +113,6 @@ func (l *Logger) WithGroup(group string) *Logger {
 	if group != "" {
 		l = l.clone()
 		l.handler = l.handler.WithGroup(group)
-	}
-
-	return l
-}
-
-// WithName returns a new [Logger] with the given name.
-// WithName requires the handler to implement [HandlerWithName], otherwise it will do nothing.
-func (l *Logger) WithName(name string) *Logger {
-	if name != "" {
-		if h, ok := l.handler.(HandlerWithName); ok {
-			l = l.clone()
-			l.handler = h.WithName(name)
-		}
 	}
 
 	return l
@@ -249,19 +230,6 @@ func (l *ContextLogger) WithGroup(group string) *ContextLogger {
 	return l
 }
 
-// WithName returns a new [ContextLogger] with the given name.
-// WithName requires the handler to implement [HandlerWithName], otherwise it will do nothing.
-func (l *ContextLogger) WithName(name string) *ContextLogger {
-	if name != "" {
-		if h, ok := l.handler.(HandlerWithName); ok {
-			l = l.clone()
-			l.handler = h.WithName(name)
-		}
-	}
-
-	return l
-}
-
 // WithSource returns a new [ContextLogger] that includes the source file and line in the log record if [enabled] is true.
 func (l *ContextLogger) WithSource(enabled bool) *ContextLogger {
 	if l.src != enabled {
@@ -340,7 +308,6 @@ type commonLoggerInterface[T any] interface {
 	Enabled(context.Context, slog.Level) bool
 	With(...slog.Attr) T
 	WithGroup(string) T
-	WithName(string) T
 	WithSource(bool) T
 }
 

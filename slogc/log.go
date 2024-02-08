@@ -47,11 +47,6 @@ func WithGroup(ctx context.Context, key string) context.Context {
 	return New(ctx, Get(ctx).WithGroup(key))
 }
 
-// WithName returns a new context with a modified logger containing the provided name.
-func WithName(ctx context.Context, name string) context.Context {
-	return New(ctx, Get(ctx).WithName(name))
-}
-
 // WithSource returns a new context with a modified logger containing the source information enabled flag.
 func WithSource(ctx context.Context, enabled bool) context.Context {
 	return New(ctx, Get(ctx).WithSource(enabled))

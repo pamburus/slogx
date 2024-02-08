@@ -6,22 +6,17 @@ import (
 	"log/slog"
 )
 
-// HandlerWithName is an extension of slog.Handler that can be named.
-type HandlerWithName interface {
-	WithName(string) slog.Handler
-}
-
 // HandlerWithNameAsAttr returns a new handler that adds the logger name
 // to the log record as an attribute with the provided key.
 // If the key is empty, the handler is returned as is.
 // If WithGroup is used, then the logger name attribute is added to the group.
-func HandlerWithNameAsAttr(handler slog.Handler, attrKey string) slog.Handler {
-	if attrKey == "" {
-		return handler
-	}
+// func HandlerWithNameAsAttr(handler slog.Handler, attrKey string) slog.Handler {
+// 	if attrKey == "" {
+// 		return handler
+// 	}
 
-	return &nameHandler{handler, attrKey, ""}
-}
+// 	return &nameHandler{handler, attrKey, ""}
+// }
 
 // JoinHandlers returns a new handler that joins the provided handlers.
 func JoinHandlers(handlers ...slog.Handler) slog.Handler {
@@ -119,6 +114,7 @@ func (h *multiHandler) WithGroup(key string) slog.Handler {
 
 // ---
 
+/*
 type nameHandler struct {
 	base      slog.Handler
 	attrKey   string
@@ -169,6 +165,7 @@ func (h *nameHandler) WithName(name string) slog.Handler {
 		joinName(h.attrValue, name),
 	}
 }
+*/
 
 // ---
 
@@ -186,7 +183,7 @@ func joinName(base, name string) string {
 
 // ---
 
-var (
-	_ slog.Handler    = (*nameHandler)(nil)
-	_ HandlerWithName = (*nameHandler)(nil)
-)
+// var (
+// 	_ slog.Handler    = (*nameHandler)(nil)
+// 	_ HandlerWithName = (*nameHandler)(nil)
+// )
