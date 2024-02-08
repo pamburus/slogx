@@ -6,8 +6,8 @@ import (
 
 	. "github.com/pamburus/go-tst/tst"
 	"github.com/pamburus/slogx"
+	"github.com/pamburus/slogx/internal/mock"
 	"github.com/pamburus/slogx/slogc"
-	"github.com/pamburus/slogx/slogc/internal/mock"
 
 	"testing"
 )

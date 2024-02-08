@@ -20,8 +20,12 @@ func JoinHandlers(handlers ...slog.Handler) slog.Handler {
 
 // Discard returns a handler that discards all log records.
 func Discard() slog.Handler {
-	return &discardHandler{}
+	return discardHandlerInstance
 }
+
+// ---
+
+var discardHandlerInstance = &discardHandler{}
 
 // ---
 
