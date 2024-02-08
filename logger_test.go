@@ -1,4 +1,4 @@
-package slogc_test
+package slogx_test
 
 import (
 	"context"
@@ -7,23 +7,20 @@ import (
 	. "github.com/pamburus/go-tst/tst"
 	"github.com/pamburus/slogx"
 	"github.com/pamburus/slogx/internal/mock"
-	"github.com/pamburus/slogx/slogc"
 
 	"testing"
 )
 
-func TestNewGet(tt *testing.T) {
+func TestLogger(tt *testing.T) {
 	t := New(tt)
 
 	t.Run("Default", func(t Test) {
 		cl := mock.NewCallLog()
 		handler := mock.NewHandler(cl)
 		slog.SetDefault(slog.New(handler))
-		ctx := context.Background()
-		ctx = slogc.WithSource(ctx, false)
-		logger := slogc.Get(ctx)
+		logger := slogx.Default().WithSource(false)
 
-		logger.Info(ctx, "msg")
+		logger.Info("msg")
 		t.Expect(cl.Calls().WithoutTime()...).To(Equal(
 			mock.HandlerEnabled{
 				Instance: "0",
@@ -39,19 +36,18 @@ func TestNewGet(tt *testing.T) {
 		))
 	})
 
-	test := func(name string, fn func(context.Context, *mock.CallLog, Test)) {
+	test := func(name string, fn func(Test, *mock.CallLog, *slogx.Logger)) {
 		cl := mock.NewCallLog()
 		handler := mock.NewHandler(cl)
-		logger := slogx.NewContextLogger(handler).WithSource(false)
-		ctx := slogc.New(nil, logger)
+		logger := slogx.New(handler).WithSource(false)
 
 		t.Run(name, func(t Test) {
-			fn(ctx, cl, t)
+			fn(t, cl, logger)
 		})
 	}
 
-	test("Debug", func(ctx context.Context, cl *mock.CallLog, t Test) {
-		slogc.Debug(ctx, "msg", slog.String("a", "v"))
+	test("Debug", func(t Test, cl *mock.CallLog, logger *slogx.Logger) {
+		logger.Debug("msg", slog.String("a", "v"))
 		t.Expect(cl.Calls().WithoutTime()...).To(Equal(
 			mock.HandlerEnabled{
 				Instance: "0",
@@ -68,8 +64,8 @@ func TestNewGet(tt *testing.T) {
 		))
 	})
 
-	test("Info", func(ctx context.Context, cl *mock.CallLog, t Test) {
-		slogc.Info(ctx, "msg", slog.String("a", "v"))
+	test("Info", func(t Test, cl *mock.CallLog, logger *slogx.Logger) {
+		logger.Info("msg", slog.String("a", "v"))
 		t.Expect(cl.Calls().WithoutTime()...).To(Equal(
 			mock.HandlerEnabled{
 				Instance: "0",
@@ -86,8 +82,8 @@ func TestNewGet(tt *testing.T) {
 		))
 	})
 
-	test("Warn", func(ctx context.Context, cl *mock.CallLog, t Test) {
-		slogc.Warn(ctx, "msg", slog.String("a", "v"))
+	test("Warn", func(t Test, cl *mock.CallLog, logger *slogx.Logger) {
+		logger.Warn("msg", slog.String("a", "v"))
 		t.Expect(cl.Calls().WithoutTime()...).To(Equal(
 			mock.HandlerEnabled{
 				Instance: "0",
@@ -104,8 +100,8 @@ func TestNewGet(tt *testing.T) {
 		))
 	})
 
-	test("Error", func(ctx context.Context, cl *mock.CallLog, t Test) {
-		slogc.Error(ctx, "msg", slog.String("a", "v"))
+	test("Error", func(t Test, cl *mock.CallLog, logger *slogx.Logger) {
+		logger.Error("msg", slog.String("a", "v"))
 		t.Expect(cl.Calls().WithoutTime()...).To(Equal(
 			mock.HandlerEnabled{
 				Instance: "0",
@@ -122,8 +118,8 @@ func TestNewGet(tt *testing.T) {
 		))
 	})
 
-	test("Log", func(ctx context.Context, cl *mock.CallLog, t Test) {
-		slogc.Log(ctx, slog.LevelWarn, "msg", slog.String("a", "v"))
+	test("Log", func(t Test, cl *mock.CallLog, logger *slogx.Logger) {
+		logger.Log(slog.LevelWarn, "msg", slog.String("a", "v"))
 		t.Expect(cl.Calls().WithoutTime()...).To(Equal(
 			mock.HandlerEnabled{
 				Instance: "0",
@@ -140,12 +136,12 @@ func TestNewGet(tt *testing.T) {
 		))
 	})
 
-	test("With", func(ctx context.Context, cl *mock.CallLog, t Test) {
-		ctx = slogc.With(ctx,
+	test("With", func(t Test, cl *mock.CallLog, logger *slogx.Logger) {
+		logger = logger.With(
 			slog.String("a", "va"),
 			slog.String("b", "vb"),
 		)
-		slogc.Log(ctx, slog.LevelInfo, "msg", slog.String("c", "d"))
+		logger.Log(slog.LevelInfo, "msg", slog.String("c", "d"))
 		t.Expect(cl.Calls().WithoutTime()...).To(Equal(
 			mock.HandlerWithAttrs{
 				Instance: "0",
@@ -171,9 +167,9 @@ func TestNewGet(tt *testing.T) {
 		))
 	})
 
-	test("WithGroup", func(ctx context.Context, cl *mock.CallLog, t Test) {
-		ctx = slogc.WithGroup(ctx, "g1")
-		slogc.Log(ctx, slog.LevelInfo, "msg", slog.String("a", "v"))
+	test("WithGroup", func(t Test, cl *mock.CallLog, logger *slogx.Logger) {
+		logger = logger.WithGroup("g1")
+		logger.Log(slog.LevelInfo, "msg", slog.String("a", "v"))
 		t.Expect(cl.Calls().WithoutTime()...).To(Equal(
 			mock.HandlerWithGroup{
 				Instance: "0",
@@ -194,5 +190,19 @@ func TestNewGet(tt *testing.T) {
 				},
 			},
 		))
+	})
+
+	test("Enabled", func(t Test, cl *mock.CallLog, logger *slogx.Logger) {
+		logger.Enabled(context.Background(), slog.LevelDebug)
+		t.Expect(cl.Calls().WithoutTime()...).To(Equal(
+			mock.HandlerEnabled{
+				Instance: "0",
+				Level:    slog.LevelDebug,
+			},
+		))
+	})
+
+	test("SlogLogger", func(t Test, cl *mock.CallLog, logger *slogx.Logger) {
+		t.Expect(logger.SlogLogger().Handler()).To(Equal(logger.Handler()))
 	})
 }
