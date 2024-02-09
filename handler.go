@@ -6,8 +6,8 @@ import (
 	"log/slog"
 )
 
-// JoinHandlers returns a new handler that joins the provided handlers.
-func JoinHandlers(handlers ...slog.Handler) slog.Handler {
+// Join returns a new handler that joins the provided handlers.
+func Join(handlers ...slog.Handler) slog.Handler {
 	switch len(handlers) {
 	case 0:
 		return Discard()
