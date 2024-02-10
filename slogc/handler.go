@@ -32,7 +32,7 @@ func (h *nameHandler) Handle(ctx context.Context, record slog.Record) error {
 	name := Name(ctx)
 	if name != "" {
 		record = record.Clone()
-		record.Add(slog.String(h.attrKey, name))
+		record.AddAttrs(slog.String(h.attrKey, name))
 	}
 
 	return h.base.Handle(ctx, record)

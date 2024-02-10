@@ -79,7 +79,7 @@ type Logger struct {
 
 // Handler returns the logger's handler.
 func (l *Logger) Handler() slog.Handler {
-	return l.handler
+	return l.handlerForExport()
 }
 
 // SlogLogger returns a new [slog.Logger] that logs to the associated handler.
@@ -101,7 +101,7 @@ func (l *Logger) Enabled(ctx context.Context, level slog.Level) bool {
 func (l *Logger) With(attrs ...slog.Attr) *Logger {
 	if len(attrs) != 0 {
 		l = l.clone()
-		l.handler = l.handler.WithAttrs(attrs)
+		l.commonLogger = l.withAttrs(attrs)
 	}
 
 	return l
@@ -111,7 +111,7 @@ func (l *Logger) With(attrs ...slog.Attr) *Logger {
 func (l *Logger) WithGroup(group string) *Logger {
 	if group != "" {
 		l = l.clone()
-		l.handler = l.handler.WithGroup(group)
+		l.commonLogger = l.withGroup(group)
 	}
 
 	return l
@@ -129,57 +129,57 @@ func (l *Logger) WithSource(enabled bool) *Logger {
 
 // Debug logs a message at the debug level.
 func (l *Logger) Debug(msg string, attrs ...slog.Attr) {
-	logAttrs(context.Background(), l.handler, l.src, slog.LevelDebug, msg, attrs, 0)
+	l.log(context.Background(), l.src, slog.LevelDebug, msg, attrs, 0)
 }
 
 // DebugContext logs a message at the debug level with the given context.
 func (l *Logger) DebugContext(ctx context.Context, msg string, attrs ...slog.Attr) {
-	logAttrs(ctx, l.handler, l.src, slog.LevelDebug, msg, attrs, 0)
+	l.log(ctx, l.src, slog.LevelDebug, msg, attrs, 0)
 }
 
 // Info logs a message at the info level.
 func (l *Logger) Info(msg string, attrs ...slog.Attr) {
-	logAttrs(context.Background(), l.handler, l.src, slog.LevelInfo, msg, attrs, 0)
+	l.log(context.Background(), l.src, slog.LevelInfo, msg, attrs, 0)
 }
 
 // InfoContext logs a message at the info level with the given context.
 func (l *Logger) InfoContext(ctx context.Context, msg string, attrs ...slog.Attr) {
-	logAttrs(ctx, l.handler, l.src, slog.LevelInfo, msg, attrs, 0)
+	l.log(ctx, l.src, slog.LevelInfo, msg, attrs, 0)
 }
 
 // Warn logs a message at the warn level.
 func (l *Logger) Warn(msg string, attrs ...slog.Attr) {
-	logAttrs(context.Background(), l.handler, l.src, slog.LevelWarn, msg, attrs, 0)
+	l.log(context.Background(), l.src, slog.LevelWarn, msg, attrs, 0)
 }
 
 // WarnContext logs a message at the warn level with the given context.
 func (l *Logger) WarnContext(ctx context.Context, msg string, attrs ...slog.Attr) {
-	logAttrs(ctx, l.handler, l.src, slog.LevelWarn, msg, attrs, 0)
+	l.log(ctx, l.src, slog.LevelWarn, msg, attrs, 0)
 }
 
 // Error logs a message at the error level.
 func (l *Logger) Error(msg string, attrs ...slog.Attr) {
-	logAttrs(context.Background(), l.handler, l.src, slog.LevelError, msg, attrs, 0)
+	l.log(context.Background(), l.src, slog.LevelError, msg, attrs, 0)
 }
 
 // ErrorContext logs a message at the error level with the given context.
 func (l *Logger) ErrorContext(ctx context.Context, msg string, attrs ...slog.Attr) {
-	logAttrs(ctx, l.handler, l.src, slog.LevelError, msg, attrs, 0)
+	l.log(ctx, l.src, slog.LevelError, msg, attrs, 0)
 }
 
 // Log logs a message at the given level.
 func (l *Logger) Log(level slog.Level, msg string, attrs ...slog.Attr) {
-	logAttrs(context.Background(), l.handler, l.src, level, msg, attrs, 0)
+	l.log(context.Background(), l.src, level, msg, attrs, 0)
 }
 
 // LogContext logs a message at the given level.
 func (l *Logger) LogContext(ctx context.Context, level slog.Level, msg string, attrs ...slog.Attr) {
-	logAttrs(ctx, l.handler, l.src, level, msg, attrs, 0)
+	l.log(ctx, l.src, level, msg, attrs, 0)
 }
 
 // LogAttrs logs a message at the given level.
 func (l *Logger) LogAttrs(ctx context.Context, level slog.Level, msg string, attrs ...slog.Attr) {
-	logAttrs(ctx, l.handler, l.src, level, msg, attrs, 0)
+	l.log(ctx, l.src, level, msg, attrs, 0)
 }
 
 func (l Logger) clone() *Logger {
@@ -200,7 +200,7 @@ func (l *ContextLogger) Logger() *Logger {
 
 // Handler returns the associated handler.
 func (l *ContextLogger) Handler() slog.Handler {
-	return l.handler
+	return l.handlerForExport()
 }
 
 // SlogLogger returns a new [slog.Logger] that logs to the associated handler.
@@ -217,7 +217,7 @@ func (l *ContextLogger) Enabled(ctx context.Context, level slog.Level) bool {
 func (l *ContextLogger) With(attrs ...slog.Attr) *ContextLogger {
 	if len(attrs) != 0 {
 		l = l.clone()
-		l.handler = l.handler.WithAttrs(attrs)
+		l.commonLogger = l.withAttrs(attrs)
 	}
 
 	return l
@@ -227,7 +227,7 @@ func (l *ContextLogger) With(attrs ...slog.Attr) *ContextLogger {
 func (l *ContextLogger) WithGroup(group string) *ContextLogger {
 	if group != "" {
 		l = l.clone()
-		l.handler = l.handler.WithGroup(group)
+		l.commonLogger = l.withGroup(group)
 	}
 
 	return l
@@ -245,37 +245,37 @@ func (l *ContextLogger) WithSource(enabled bool) *ContextLogger {
 
 // Debug logs a message at the debug level.
 func (l *ContextLogger) Debug(ctx context.Context, msg string, attrs ...slog.Attr) {
-	logAttrs(ctx, l.handler, l.src, slog.LevelDebug, msg, attrs, 0)
+	l.log(ctx, l.src, slog.LevelDebug, msg, attrs, 0)
 }
 
 // Info logs a message at the info level.
 func (l *ContextLogger) Info(ctx context.Context, msg string, attrs ...slog.Attr) {
-	logAttrs(ctx, l.handler, l.src, slog.LevelInfo, msg, attrs, 0)
+	l.log(ctx, l.src, slog.LevelInfo, msg, attrs, 0)
 }
 
 // Warn logs a message at the warn level.
 func (l *ContextLogger) Warn(ctx context.Context, msg string, attrs ...slog.Attr) {
-	logAttrs(ctx, l.handler, l.src, slog.LevelWarn, msg, attrs, 0)
+	l.log(ctx, l.src, slog.LevelWarn, msg, attrs, 0)
 }
 
 // Error logs a message at the error level.
 func (l *ContextLogger) Error(ctx context.Context, msg string, attrs ...slog.Attr) {
-	logAttrs(ctx, l.handler, l.src, slog.LevelError, msg, attrs, 0)
+	l.log(ctx, l.src, slog.LevelError, msg, attrs, 0)
 }
 
 // Log logs a message at the given level.
 func (l *ContextLogger) Log(ctx context.Context, level slog.Level, msg string, attrs ...slog.Attr) {
-	logAttrs(ctx, l.handler, l.src, level, msg, attrs, 0)
+	l.log(ctx, l.src, level, msg, attrs, 0)
 }
 
 // LogAttrs logs a message at the given level.
 func (l *ContextLogger) LogAttrs(ctx context.Context, level slog.Level, msg string, attrs ...slog.Attr) {
-	logAttrs(ctx, l.handler, l.src, level, msg, attrs, 0)
+	l.log(ctx, l.src, level, msg, attrs, 0)
 }
 
 // LogWithCallerSkip logs a message at the given level with additional skipping of the specified amount of call stack frames.
 func (l *ContextLogger) LogWithCallerSkip(ctx context.Context, skip int, level slog.Level, msg string, attrs ...slog.Attr) {
-	logAttrs(ctx, l.handler, l.src, level, msg, attrs, skip)
+	l.log(ctx, l.src, level, msg, attrs, skip)
 }
 
 func (l ContextLogger) clone() *ContextLogger {
@@ -283,26 +283,6 @@ func (l ContextLogger) clone() *ContextLogger {
 }
 
 // ---
-
-func logAttrs(ctx context.Context, handler slog.Handler, includeSource bool, level slog.Level, msg string, attrs []slog.Attr, skip int) {
-	if ctx == nil {
-		ctx = context.Background()
-	}
-
-	if !handler.Enabled(ctx, level) {
-		return
-	}
-
-	var pcs [1]uintptr
-	if includeSource {
-		runtime.Callers(skip+3, pcs[:])
-	}
-
-	r := slog.NewRecord(time.Now(), level, msg, pcs[0])
-	r.AddAttrs(attrs...)
-
-	_ = handler.Handle(ctx, r)
-}
 
 func defaultHandler() slog.Handler {
 	return slog.Default().Handler()
@@ -313,6 +293,74 @@ func defaultHandler() slog.Handler {
 type commonLogger struct {
 	handler slog.Handler
 	src     bool
+	attrs   AttrPack
+}
+
+func (l *commonLogger) handlerForExport() slog.Handler {
+	handler := l.handler
+	if l.attrs.Len() != 0 {
+		handler = handler.WithAttrs(l.attrs.Collect())
+	}
+
+	return handler
+}
+
+func (l commonLogger) withAttrs(attrs []slog.Attr) commonLogger {
+	if len(attrs) != 0 {
+		l.attrs = l.attrs.Clone()
+		l.attrs.Add(attrs...)
+	}
+
+	return l
+}
+
+func (l commonLogger) withGroup(group string) commonLogger {
+	if group != "" {
+		l.handler = l.handlerForExport()
+		l.handler = l.handler.WithGroup(group)
+		l.attrs = AttrPack{}
+	}
+
+	return l
+}
+
+func (l *commonLogger) log(ctx context.Context, includeSource bool, level slog.Level, msg string, attrs []slog.Attr, skip int) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+
+	if !l.handler.Enabled(ctx, level) {
+		return
+	}
+
+	var pcs [1]uintptr
+	if includeSource {
+		runtime.Callers(skip+3, pcs[:])
+	}
+
+	r := slog.NewRecord(time.Now(), level, msg, pcs[0])
+
+	if l.attrs.Len() != 0 {
+		l.attrs.Enumerate(func(attr slog.Attr) bool {
+			r.AddAttrs(attr)
+
+			return true
+		})
+	}
+
+	r.AddAttrs(attrs...)
+
+	_ = l.handler.Handle(ctx, r)
+}
+
+// ---
+
+func logAttrs(ctx context.Context, handler slog.Handler, includeSource bool, level slog.Level, msg string, attrs []slog.Attr, skip int) {
+	l := commonLogger{
+		handler: handler,
+		src:     includeSource,
+	}
+	l.log(ctx, includeSource, level, msg, attrs, skip+1)
 }
 
 // ---

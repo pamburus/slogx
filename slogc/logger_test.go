@@ -147,23 +147,25 @@ func TestLogger(tt *testing.T) {
 		)
 		slogc.Log(ctx, slog.LevelInfo, "msg", slog.String("c", "d"))
 		t.Expect(cl.Calls().WithoutTime()...).To(Equal(
-			mock.HandlerWithAttrs{
-				Instance: "0",
-				Attrs: []mock.Attr{
-					{Key: "a", Value: "va"},
-					{Key: "b", Value: "vb"},
-				},
-			},
+			// mock.HandlerWithAttrs{
+			// 	Instance: "0",
+			// 	Attrs: []mock.Attr{
+			// 		{Key: "a", Value: "va"},
+			// 		{Key: "b", Value: "vb"},
+			// 	},
+			// },
 			mock.HandlerEnabled{
-				Instance: "0.1",
+				Instance: "0",
 				Level:    slog.LevelInfo,
 			},
 			mock.HandlerHandle{
-				Instance: "0.1",
+				Instance: "0",
 				Record: mock.Record{
 					Level:   slog.LevelInfo,
 					Message: "msg",
 					Attrs: []mock.Attr{
+						{Key: "a", Value: "va"},
+						{Key: "b", Value: "vb"},
 						{Key: "c", Value: "d"},
 					},
 				},
