@@ -288,21 +288,21 @@ func benchmarkSLogXLogger(b *testing.B) {
 	testLogAfterWith := func(b *testing.B, logger *slogx.Logger) {
 		b.Run("LogAfterWith", func(b *testing.B) {
 			b.Run("TwoAndThreeAttrs", func(b *testing.B) {
-				logger := logger.With(slog.String("a", "av"), slog.String("b", "bv"))
+				logger := logger.With(slog.String("a", "av"), slog.String("b", "bv")).LongTerm()
 				b.ResetTimer()
 				for i := 0; i != b.N; i++ {
 					logger.Log(slog.LevelInfo, "msg", slog.String("c", "cv"), slog.String("d", "dv"), slog.String("e", "ev"))
 				}
 			})
 			b.Run("ThreeAndFourAttrs", func(b *testing.B) {
-				logger := logger.With(slog.String("a", "av"), slog.String("b", "bv"), slog.String("c", "cv"))
+				logger := logger.With(slog.String("a", "av"), slog.String("b", "bv"), slog.String("c", "cv")).LongTerm()
 				b.ResetTimer()
 				for i := 0; i != b.N; i++ {
 					logger.Log(slog.LevelInfo, "msg", slog.String("d", "dv"), slog.String("e", "ev"), slog.String("f", "fv"), slog.String("g", "gv"))
 				}
 			})
 			b.Run("FiveAndThreeAttrs", func(b *testing.B) {
-				logger := logger.With(slog.String("a", "av"), slog.String("b", "bv"), slog.String("c", "cv"), slog.String("d", "dv"), slog.String("e", "ev"))
+				logger := logger.With(slog.String("a", "av"), slog.String("b", "bv"), slog.String("c", "cv"), slog.String("d", "dv"), slog.String("e", "ev")).LongTerm()
 				b.ResetTimer()
 				for i := 0; i != b.N; i++ {
 					logger.Log(slog.LevelInfo, "msg", slog.String("f", "fv"), slog.String("g", "gv"), slog.String("h", "hv"))
