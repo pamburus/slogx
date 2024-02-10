@@ -337,16 +337,22 @@ func BenchmarkLogger(b *testing.B) {
 		testWithSource(b, handler, true)
 	}
 
-	b.Run("DisabledHandler", func(b *testing.B) {
-		testAllForHandler(b, slogx.Discard())
+	b.Run("Discard", func(b *testing.B) {
+		b.Run("Disabled", func(b *testing.B) {
+			testAllForHandler(b, slogx.Discard())
+		})
+		b.Run("Enabled", func(b *testing.B) {
+			testAllForHandler(b, &enabledDiscardHandler{})
+		})
 	})
 
-	b.Run("EnabledDiscardHandler", func(b *testing.B) {
-		testAllForHandler(b, &enabledDiscardHandler{})
-	})
-
-	b.Run("EnabledJSONHandler", func(b *testing.B) {
-		testAllForHandler(b, slog.NewJSONHandler(io.Discard, &slog.HandlerOptions{}))
+	b.Run("JSON", func(b *testing.B) {
+		b.Run("Disabled", func(b *testing.B) {
+			testAllForHandler(b, slog.NewJSONHandler(io.Discard, &slog.HandlerOptions{Level: slog.LevelError}))
+		})
+		b.Run("Enabled", func(b *testing.B) {
+			testAllForHandler(b, slog.NewJSONHandler(io.Discard, &slog.HandlerOptions{}))
+		})
 	})
 }
 
