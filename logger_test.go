@@ -209,7 +209,34 @@ func TestLogger(tt *testing.T) {
 }
 
 func BenchmarkLogger(b *testing.B) {
-	testEnabled := func(b *testing.B, logger *slogx.Logger) {
+	b.Run("slogx", func(b *testing.B) {
+		benchmarkLogger(b,
+			func(handler slog.Handler, withSource bool) (*slogx.Logger, bool) {
+				return slogx.New(handler).WithSource(withSource), withSource
+			},
+			func(logger *slogx.Logger, attrs ...slog.Attr) *slogx.Logger {
+				return logger.With(attrs...)
+			},
+		)
+	})
+	b.Run("slog", func(b *testing.B) {
+		benchmarkLogger(b,
+			func(handler slog.Handler, withSource bool) (*slog.Logger, bool) {
+				return slog.New(handler), true
+			},
+			func(logger *slog.Logger, attrs ...slog.Attr) *slog.Logger {
+				return slog.New(logger.Handler().WithAttrs(attrs))
+			},
+		)
+	})
+}
+
+func benchmarkLogger[
+	Logger loggerCompatible[Logger],
+	NewLoggerFunc func(handler slog.Handler, withSource bool) (_ Logger, actuallyWithSource bool),
+	WithFunc func(logger Logger, attrs ...slog.Attr) Logger,
+](b *testing.B, newLogger NewLoggerFunc, with WithFunc) {
+	testEnabled := func(b *testing.B, logger Logger) {
 		b.Run("Enabled", func(b *testing.B) {
 			b.ResetTimer()
 			for i := 0; i != b.N; i++ {
@@ -218,93 +245,93 @@ func BenchmarkLogger(b *testing.B) {
 		})
 	}
 
-	testLogAttrs := func(b *testing.B, logger *slogx.Logger) {
-		b.Run("Log", func(b *testing.B) {
+	testLogAttrs := func(b *testing.B, logger Logger) {
+		b.Run("LogAttrs", func(b *testing.B) {
 			b.Run("NoAttrs", func(b *testing.B) {
 				b.ResetTimer()
 				for i := 0; i != b.N; i++ {
-					logger.Log(slog.LevelInfo, "msg")
+					logger.LogAttrs(context.Background(), slog.LevelInfo, "msg")
 				}
 			})
 			b.Run("ThreeAttrs", func(b *testing.B) {
 				b.ResetTimer()
 				for i := 0; i != b.N; i++ {
-					logger.Log(slog.LevelInfo, "msg", slog.String("a", "av"), slog.String("b", "bv"), slog.String("c", "cv"))
+					logger.LogAttrs(context.Background(), slog.LevelInfo, "msg", slog.String("a", "av"), slog.String("b", "bv"), slog.String("c", "cv"))
 				}
 			})
 		})
 	}
 
-	testWith := func(b *testing.B, logger *slogx.Logger) {
+	testWith := func(b *testing.B, logger Logger) {
 		b.Run("With", func(b *testing.B) {
 			b.Run("ThreeAttrs", func(b *testing.B) {
 				b.ResetTimer()
 				for i := 0; i != b.N; i++ {
-					logger.With(slog.String("a", "av"), slog.String("b", "bv"), slog.String("c", "cv"))
+					with(logger, slog.String("a", "av"), slog.String("b", "bv"), slog.String("c", "cv"))
 				}
 			})
 			b.Run("FiveAttrs", func(b *testing.B) {
 				b.ResetTimer()
 				for i := 0; i != b.N; i++ {
-					logger.With(slog.String("a", "av"), slog.String("b", "bv"), slog.String("c", "cv"), slog.String("d", "dv"), slog.String("e", "ev"))
+					with(logger, slog.String("a", "av"), slog.String("b", "bv"), slog.String("c", "cv"), slog.String("d", "dv"), slog.String("e", "ev"))
 				}
 			})
 		})
 	}
 
-	testWithAndLog := func(b *testing.B, logger *slogx.Logger) {
+	testWithAndLog := func(b *testing.B, logger Logger) {
 		b.Run("WithAndLog", func(b *testing.B) {
 			b.Run("TwoAndThreeAttrs", func(b *testing.B) {
 				b.ResetTimer()
 				for i := 0; i != b.N; i++ {
-					logger := logger.With(slog.String("a", "av"), slog.String("b", "bv"))
-					logger.Log(slog.LevelInfo, "msg", slog.String("c", "cv"), slog.String("d", "dv"), slog.String("e", "ev"))
+					logger := with(logger, slog.String("a", "av"), slog.String("b", "bv"))
+					logger.LogAttrs(context.Background(), slog.LevelInfo, "msg", slog.String("c", "cv"), slog.String("d", "dv"), slog.String("e", "ev"))
 				}
 			})
 			b.Run("ThreeAndFourAttrs", func(b *testing.B) {
 				b.ResetTimer()
 				for i := 0; i != b.N; i++ {
-					logger := logger.With(slog.String("a", "av"), slog.String("b", "bv"), slog.String("c", "cv"))
-					logger.Log(slog.LevelInfo, "msg", slog.String("d", "dv"), slog.String("e", "ev"), slog.String("f", "fv"), slog.String("g", "gv"))
+					logger := with(logger, slog.String("a", "av"), slog.String("b", "bv"), slog.String("c", "cv"))
+					logger.LogAttrs(context.Background(), slog.LevelInfo, "msg", slog.String("d", "dv"), slog.String("e", "ev"), slog.String("f", "fv"), slog.String("g", "gv"))
 				}
 			})
 			b.Run("FiveAndThreeAttrs", func(b *testing.B) {
 				b.ResetTimer()
 				for i := 0; i != b.N; i++ {
-					logger := logger.With(slog.String("a", "av"), slog.String("b", "bv"), slog.String("c", "cv"), slog.String("d", "dv"), slog.String("e", "ev"))
-					logger.Log(slog.LevelInfo, "msg", slog.String("f", "fv"), slog.String("g", "gv"), slog.String("h", "hv"))
+					logger := with(logger, slog.String("a", "av"), slog.String("b", "bv"), slog.String("c", "cv"), slog.String("d", "dv"), slog.String("e", "ev"))
+					logger.LogAttrs(context.Background(), slog.LevelInfo, "msg", slog.String("f", "fv"), slog.String("g", "gv"), slog.String("h", "hv"))
 				}
 			})
 		})
 	}
 
-	testLogAfterWith := func(b *testing.B, logger *slogx.Logger) {
+	testLogAfterWith := func(b *testing.B, logger Logger) {
 		b.Run("LogAfterWith", func(b *testing.B) {
 			b.Run("TwoAndThreeAttrs", func(b *testing.B) {
-				logger := logger.With(slog.String("a", "av"), slog.String("b", "bv"))
+				logger := with(logger, slog.String("a", "av"), slog.String("b", "bv"))
 				b.ResetTimer()
 				for i := 0; i != b.N; i++ {
-					logger.Log(slog.LevelInfo, "msg", slog.String("c", "cv"), slog.String("d", "dv"), slog.String("e", "ev"))
+					logger.LogAttrs(context.Background(), slog.LevelInfo, "msg", slog.String("c", "cv"), slog.String("d", "dv"), slog.String("e", "ev"))
 				}
 			})
 			b.Run("ThreeAndFourAttrs", func(b *testing.B) {
-				logger := logger.With(slog.String("a", "av"), slog.String("b", "bv"), slog.String("c", "cv"))
+				logger := with(logger, slog.String("a", "av"), slog.String("b", "bv"), slog.String("c", "cv"))
 				b.ResetTimer()
 				for i := 0; i != b.N; i++ {
-					logger.Log(slog.LevelInfo, "msg", slog.String("d", "dv"), slog.String("e", "ev"), slog.String("f", "fv"), slog.String("g", "gv"))
+					logger.LogAttrs(context.Background(), slog.LevelInfo, "msg", slog.String("d", "dv"), slog.String("e", "ev"), slog.String("f", "fv"), slog.String("g", "gv"))
 				}
 			})
 			b.Run("FiveAndThreeAttrs", func(b *testing.B) {
-				logger := logger.With(slog.String("a", "av"), slog.String("b", "bv"), slog.String("c", "cv"), slog.String("d", "dv"), slog.String("e", "ev"))
+				logger := with(logger, slog.String("a", "av"), slog.String("b", "bv"), slog.String("c", "cv"), slog.String("d", "dv"), slog.String("e", "ev"))
 				b.ResetTimer()
 				for i := 0; i != b.N; i++ {
-					logger.Log(slog.LevelInfo, "msg", slog.String("f", "fv"), slog.String("g", "gv"), slog.String("h", "hv"))
+					logger.LogAttrs(context.Background(), slog.LevelInfo, "msg", slog.String("f", "fv"), slog.String("g", "gv"), slog.String("h", "hv"))
 				}
 			})
 		})
 	}
 
-	testAllForLogger := func(b *testing.B, logger *slogx.Logger) {
+	testAllForLogger := func(b *testing.B, logger Logger) {
 		testEnabled(b, logger)
 		testLogAttrs(b, logger)
 		testWith(b, logger)
@@ -318,16 +345,22 @@ func BenchmarkLogger(b *testing.B) {
 			name = "WithoutSource"
 		}
 
+		newLogger := func(handler slog.Handler) Logger {
+			logger, actuallyEnabled := newLogger(handler, enabled)
+			if actuallyEnabled != enabled {
+				b.Skip("N/A")
+			}
+
+			return logger
+		}
+
 		b.Run(name, func(b *testing.B) {
 			b.Run("Unwrapped", func(b *testing.B) {
-				logger := slogx.New(handler).WithSource(enabled)
-				testAllForLogger(b, logger)
+				testAllForLogger(b, newLogger(handler))
 			})
 
 			b.Run("3xWrapped", func(b *testing.B) {
-				handler = wrapHandlerN(handler, 3)
-				logger := slogx.New(handler).WithSource(enabled)
-				testAllForLogger(b, logger)
+				testAllForLogger(b, newLogger(wrapHandlerN(handler, 3)))
 			})
 		})
 	}
@@ -419,4 +452,11 @@ func (h *enabledDiscardHandler) WithAttrs(attrs []slog.Attr) slog.Handler {
 
 func (h *enabledDiscardHandler) WithGroup(key string) slog.Handler {
 	return h
+}
+
+// ---
+
+type loggerCompatible[T any] interface {
+	Enabled(context.Context, slog.Level) bool
+	LogAttrs(context.Context, slog.Level, string, ...slog.Attr)
 }
