@@ -465,7 +465,7 @@ func benchmarkSLogLogger(b *testing.B) {
 		testLogAfterWith(b, logger)
 	}
 
-	testWithSource := func(b *testing.B, handler slog.Handler, enabled bool) {
+	testAllForHandler := func(b *testing.B, handler slog.Handler) {
 		b.Run("WithSource", func(b *testing.B) {
 			b.Run("Unwrapped", func(b *testing.B) {
 				logger := slog.New(handler)
@@ -478,11 +478,6 @@ func benchmarkSLogLogger(b *testing.B) {
 				testAllForLogger(b, logger)
 			})
 		})
-	}
-
-	testAllForHandler := func(b *testing.B, handler slog.Handler) {
-		testWithSource(b, handler, false)
-		testWithSource(b, handler, true)
 	}
 
 	b.Run("Discard", func(b *testing.B) {
