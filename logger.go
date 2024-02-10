@@ -13,18 +13,18 @@ import (
 
 // New returns a new [Logger] with the given handler.
 func New(handler slog.Handler) *Logger {
-	return &Logger{
+	return &Logger{commonLogger{
 		handler: handler,
 		src:     true,
-	}
+	}}
 }
 
 // NewContextLogger returns a new [ContextLogger] with the given handler.
 func NewContextLogger(handler slog.Handler) *ContextLogger {
-	return &ContextLogger{
+	return &ContextLogger{commonLogger{
 		handler: handler,
 		src:     true,
-	}
+	}}
 }
 
 // Default returns a new [Logger] with the default handler from [slog.Default].
@@ -74,8 +74,7 @@ func Log(level slog.Level, msg string, attrs ...slog.Attr) {
 // It forces to use [slog.Attr] for log attributes and does not support slow alternatives provided by [slog.Logger].
 // It also takes [slog.Attr] in [Logger.With] because it is the only high performance way to add attributes.
 type Logger struct {
-	handler slog.Handler
-	src     bool
+	commonLogger
 }
 
 // Handler returns the logger's handler.
@@ -90,7 +89,7 @@ func (l *Logger) SlogLogger() *slog.Logger {
 
 // ContextLogger returns a new [ContextLogger] that takes context in logging methods.
 func (l *Logger) ContextLogger() *ContextLogger {
-	return &ContextLogger{l.handler, l.src}
+	return &ContextLogger{l.commonLogger}
 }
 
 // Enabled returns true if the given level is enabled.
@@ -186,13 +185,12 @@ func (l Logger) clone() *Logger {
 
 // ContextLogger is an alternative to [Logger] having only methods with context for logging messages.
 type ContextLogger struct {
-	handler slog.Handler
-	src     bool
+	commonLogger
 }
 
 // Logger returns a new [Logger] with the associated handler.
 func (l *ContextLogger) Logger() *Logger {
-	return &Logger{l.handler, l.src}
+	return &Logger{l.commonLogger}
 }
 
 // Handler returns the associated handler.
@@ -298,6 +296,13 @@ func logAttrs(ctx context.Context, handler slog.Handler, includeSource bool, lev
 
 func defaultHandler() slog.Handler {
 	return slog.Default().Handler()
+}
+
+// ---
+
+type commonLogger struct {
+	handler slog.Handler
+	src     bool
 }
 
 // ---
