@@ -206,3 +206,129 @@ func TestLogger(tt *testing.T) {
 		t.Expect(logger.SlogLogger().Handler()).To(Equal(logger.Handler()))
 	})
 }
+
+func BenchmarkLogger(b *testing.B) {
+	handler := slogx.Discard()
+
+	testEnabled := func(b *testing.B, logger *slogx.Logger) {
+		b.Run("Enabled", func(b *testing.B) {
+			b.ResetTimer()
+			for i := 0; i != b.N; i++ {
+				logger.Enabled(context.Background(), slog.LevelDebug)
+			}
+		})
+	}
+
+	testLogAttrs := func(b *testing.B, logger *slogx.Logger) {
+		b.Run("Log", func(b *testing.B) {
+			b.Run("NoAttrs", func(b *testing.B) {
+				b.ResetTimer()
+				for i := 0; i != b.N; i++ {
+					logger.Log(slog.LevelDebug, "msg")
+				}
+			})
+			b.Run("ThreeAttrs", func(b *testing.B) {
+				b.ResetTimer()
+				for i := 0; i != b.N; i++ {
+					logger.Log(slog.LevelDebug, "msg", slog.String("a", "av"), slog.String("b", "bv"), slog.String("c", "cv"))
+				}
+			})
+		})
+	}
+
+	testWith := func(b *testing.B, logger *slogx.Logger) {
+		b.Run("With", func(b *testing.B) {
+			b.Run("ThreeAttrs", func(b *testing.B) {
+				b.ResetTimer()
+				for i := 0; i != b.N; i++ {
+					logger.With(slog.String("a", "av"), slog.String("b", "bv"), slog.String("c", "cv"))
+				}
+			})
+		})
+	}
+
+	testWithAndLog := func(b *testing.B, logger *slogx.Logger) {
+		b.Run("WithAndLog", func(b *testing.B) {
+			b.Run("TwoAndThreeAttrs", func(b *testing.B) {
+				b.ResetTimer()
+				for i := 0; i != b.N; i++ {
+					logger := logger.With(slog.String("a", "av"), slog.String("b", "bv"))
+					logger.Log(slog.LevelDebug, "msg", slog.String("c", "cv"), slog.String("d", "dv"), slog.String("e", "ev"))
+				}
+			})
+		})
+	}
+
+	testAll := func(b *testing.B, logger *slogx.Logger) {
+		testEnabled(b, logger)
+		testLogAttrs(b, logger)
+		testWith(b, logger)
+		testWithAndLog(b, logger)
+	}
+
+	testWithSource := func(b *testing.B, logger *slogx.Logger, enabled bool) {
+		name := "WithSource"
+		if !enabled {
+			name = "WithoutSource"
+		}
+
+		logger = logger.WithSource(enabled)
+
+		b.Run(name, func(b *testing.B) {
+			b.Run("Unwrapped", func(b *testing.B) {
+				testAll(b, slogx.New(handler))
+			})
+
+			b.Run("3xWrapped", func(b *testing.B) {
+				handler = wrapHandlerN(handler, 3)
+				testAll(b, slogx.New(handler))
+			})
+		})
+	}
+
+	testWithSource(b, slogx.New(handler), false)
+	testWithSource(b, slogx.New(handler), true)
+}
+
+// ---
+
+func wrapHandlerN(handler slog.Handler, times int) slog.Handler {
+	for i := 0; i != 3; i++ {
+		handler = wrapHandler(handler)
+	}
+
+	return handler
+}
+
+func wrapHandler(handler slog.Handler) slog.Handler {
+	return &testHandlerWrapper{handler}
+
+}
+
+type testHandlerWrapper struct {
+	base slog.Handler
+}
+
+func (h *testHandlerWrapper) Enabled(ctx context.Context, level slog.Level) bool {
+	return h.base.Enabled(ctx, level)
+}
+
+func (h *testHandlerWrapper) Handle(ctx context.Context, record slog.Record) error {
+	return h.base.Handle(ctx, record)
+}
+
+func (h *testHandlerWrapper) WithAttrs(attrs []slog.Attr) slog.Handler {
+	if len(attrs) == 0 {
+		return h
+	}
+
+	return &testHandlerWrapper{h.base.WithAttrs(attrs)}
+}
+
+func (h *testHandlerWrapper) WithGroup(key string) slog.Handler {
+	if key == "" {
+		return h
+	}
+
+	return &testHandlerWrapper{h.base.WithGroup(key)}
+}
