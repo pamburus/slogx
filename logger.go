@@ -177,6 +177,11 @@ func (l *Logger) LogContext(ctx context.Context, level slog.Level, msg string, a
 	logAttrs(ctx, l.handler, l.src, level, msg, attrs, 0)
 }
 
+// LogAttrs logs a message at the given level.
+func (l *Logger) LogAttrs(ctx context.Context, level slog.Level, msg string, attrs ...slog.Attr) {
+	logAttrs(ctx, l.handler, l.src, level, msg, attrs, 0)
+}
+
 func (l Logger) clone() *Logger {
 	return &l
 }
@@ -263,6 +268,11 @@ func (l *ContextLogger) Log(ctx context.Context, level slog.Level, msg string, a
 	logAttrs(ctx, l.handler, l.src, level, msg, attrs, 0)
 }
 
+// LogAttrs logs a message at the given level.
+func (l *ContextLogger) LogAttrs(ctx context.Context, level slog.Level, msg string, attrs ...slog.Attr) {
+	logAttrs(ctx, l.handler, l.src, level, msg, attrs, 0)
+}
+
 // LogWithCallerSkip logs a message at the given level with additional skipping of the specified amount of call stack frames.
 func (l *ContextLogger) LogWithCallerSkip(ctx context.Context, skip int, level slog.Level, msg string, attrs ...slog.Attr) {
 	logAttrs(ctx, l.handler, l.src, level, msg, attrs, skip)
@@ -311,6 +321,7 @@ type commonLoggerInterface[T any] interface {
 	Handler() slog.Handler
 	SlogLogger() *slog.Logger
 	Enabled(context.Context, slog.Level) bool
+	LogAttrs(context.Context, slog.Level, string, ...slog.Attr)
 	With(...slog.Attr) T
 	WithGroup(string) T
 	WithSource(bool) T
