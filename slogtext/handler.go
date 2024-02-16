@@ -299,29 +299,58 @@ func (h *Handler) appendKey(hs *handleState, key string, basePrefixLen int) {
 func (h *Handler) appendValue(hs *handleState, v slog.Value, quote bool) {
 	switch v.Kind() {
 	case slog.KindString:
-		h.appendString(hs, v.String(), quote)
+		if h.styleString.empty {
+			h.appendString(hs, v.String(), quote)
+		} else {
+			hs.buf.AppendString(h.styleString.prefix)
+			h.appendString(hs, v.String(), quote)
+			hs.buf.AppendString(h.styleString.suffix)
+		}
 	case slog.KindInt64:
-		hs.buf.AppendInt(v.Int64())
+		h.styleNumber.apply(hs, func() {
+			hs.buf.AppendInt(v.Int64())
+		})
 	case slog.KindUint64:
-		hs.buf.AppendUint(v.Uint64())
+		h.styleNumber.apply(hs, func() {
+			hs.buf.AppendUint(v.Uint64())
+		})
 	case slog.KindFloat64:
-		hs.buf.AppendFloat64(v.Float64())
+		h.styleNumber.apply(hs, func() {
+			hs.buf.AppendFloat64(v.Float64())
+		})
 	case slog.KindBool:
-		hs.buf.AppendBool(v.Bool())
+		h.styleNumber.apply(hs, func() {
+			hs.buf.AppendBool(v.Bool())
+		})
 	case slog.KindDuration:
-		h.appendDuration(hs, v.Duration(), quote)
+		h.styleDuration.apply(hs, func() {
+			h.appendDuration(hs, v.Duration(), quote)
+		})
 	case slog.KindTime:
-		h.appendTime(hs, v.Time(), quote)
+		h.styleTime.apply(hs, func() {
+			h.appendTime(hs, v.Time(), quote)
+		})
 	case slog.KindAny:
 		switch v := v.Any().(type) {
-		case slog.Level:
-			h.appendLevel(hs, v)
+		case nil:
+			h.styleNull.apply(hs, func() {
+				hs.buf.AppendString("null")
+			})
 		case encoding.TextMarshaler:
 			data, err := v.MarshalText()
 			if err != nil {
-				break
+				h.styleMarshalError.apply(hs, func() {
+					h.appendString(hs, err.Error(), quote)
+				})
+			} else {
+				h.appendByteString(hs, data, quote)
 			}
-			h.appendByteString(hs, data, quote)
+		case error:
+			h.styleError.apply(hs, func() {
+				h.appendString(hs, v.Error(), quote)
+			})
+		case slog.Level:
+			h.appendLevelValue(hs, v)
 		case *slog.Source:
 			h.appendSource(hs, *v)
 		case slog.Source:
@@ -489,6 +518,45 @@ func (h *Handler) appendLevel(hs *handleState, level slog.Level) {
 	hs.buf.AppendString(h.theme.Level[i].Text)
 }
 
+func (h *Handler) appendLevelValue(hs *handleState, level slog.Level) {
+	const (
+		textDebug = "DEBUG"
+		textInfo  = "INFO"
+		textWarn  = "WARN"
+		textError = "ERROR"
+	)
+
+	switch {
+	case level < slog.LevelDebug:
+		hs.buf.AppendString(textDebug)
+		hs.buf.AppendInt(int64(level - slog.LevelDebug))
+	case level == slog.LevelDebug:
+		hs.buf.AppendString(textDebug)
+	case level < slog.LevelInfo:
+		hs.buf.AppendString(textDebug)
+		hs.buf.AppendByte('+')
+		hs.buf.AppendInt(int64(level - slog.LevelDebug))
+	case level == slog.LevelInfo:
+		hs.buf.AppendString(textInfo)
+	case level < slog.LevelWarn:
+		hs.buf.AppendString(textInfo)
+		hs.buf.AppendByte('+')
+		hs.buf.AppendInt(int64(level - slog.LevelInfo))
+	case level == slog.LevelWarn:
+		hs.buf.AppendString(textWarn)
+	case level < slog.LevelError:
+		hs.buf.AppendString(textWarn)
+		hs.buf.AppendByte('+')
+		hs.buf.AppendInt(int64(level - slog.LevelWarn))
+	case level == slog.LevelError:
+		hs.buf.AppendString(textError)
+	default:
+		hs.buf.AppendString(textError)
+		hs.buf.AppendByte('+')
+		hs.buf.AppendInt(int64(level - slog.LevelError))
+	}
+}
+
 func (h *Handler) source(pc uintptr) slog.Source {
 	fs := runtime.CallersFrames([]uintptr{pc})
 	f, _ := fs.Next()
@@ -520,6 +588,14 @@ func newThemeCache(theme *Theme) themeCache {
 		sourceStyleSuffix:    theme.Source.Suffix + " ",
 		timestampStylePrefix: theme.Timestamp.Prefix,
 		timestampStyleSuffix: theme.Timestamp.Suffix + " ",
+		styleString:          newStyle(theme.String),
+		styleNumber:          newStyle(theme.Number),
+		styleBool:            newStyle(theme.Bool),
+		styleNull:            newStyle(theme.Null),
+		styleError:           newStyle(theme.Error),
+		styleDuration:        newStyle(theme.Duration),
+		styleTime:            newStyle(theme.Time),
+		styleMarshalError:    newStyle(theme.MarshalError),
 	}
 }
 
@@ -530,6 +606,14 @@ type themeCache struct {
 	sourceStyleSuffix    string
 	timestampStylePrefix string
 	timestampStyleSuffix string
+	styleString          style
+	styleNumber          style
+	styleBool            style
+	styleNull            style
+	styleError           style
+	styleDuration        style
+	styleTime            style
+	styleMarshalError    style
 }
 
 // ---
@@ -595,6 +679,28 @@ func (g groups) fork() groups {
 	g.tail = slices.Clip(g.tail)
 
 	return g
+}
+
+// ---
+
+func newStyle(item VariableThemeItem) style {
+	return style{item.Prefix, item.Suffix, item.IsEmpty()}
+}
+
+type style struct {
+	prefix string
+	suffix string
+	empty  bool
+}
+
+func (s style) apply(hs *handleState, appendValue func()) {
+	if s.empty {
+		appendValue()
+	} else {
+		hs.buf.AppendString(s.prefix)
+		appendValue()
+		hs.buf.AppendString(s.suffix)
+	}
 }
 
 // ---

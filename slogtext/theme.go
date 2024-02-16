@@ -12,31 +12,39 @@ func ThemeDefault() Theme {
 	}
 
 	return Theme{
-		Timestamp: VariableThemeItem{Prefix: "\x1b[2m", Suffix: "\x1b[m"},
-		Level:     level,
-		Message:   VariableThemeItem{},
-		Key:       VariableThemeItem{Prefix: "\x1b[2m"},
-		EqualSign: VariableThemeItem{Suffix: "\x1b[m"},
-		Source:    VariableThemeItem{Prefix: "\x1b[2;3m@ ", Suffix: "\x1b[m"},
-		String:    VariableThemeItem{},
-		Bool:      VariableThemeItem{},
-		Number:    VariableThemeItem{},
-		Null:      VariableThemeItem{},
+		Timestamp:    VariableThemeItem{Prefix: "\x1b[2m", Suffix: "\x1b[m"},
+		Level:        level,
+		Message:      VariableThemeItem{},
+		Key:          VariableThemeItem{Prefix: "\x1b[2m"},
+		EqualSign:    VariableThemeItem{Suffix: "\x1b[m"},
+		Source:       VariableThemeItem{Prefix: "\x1b[2;3m@ ", Suffix: "\x1b[m"},
+		String:       VariableThemeItem{},
+		Bool:         VariableThemeItem{},
+		Number:       VariableThemeItem{},
+		Null:         VariableThemeItem{},
+		Error:        VariableThemeItem{Prefix: "\x1b[91m", Suffix: "\x1b[m"},
+		Duration:     VariableThemeItem{},
+		Time:         VariableThemeItem{},
+		MarshalError: VariableThemeItem{Prefix: "\x1b[91;2m$!(ERROR: \x1b[22m", Suffix: "\x1b[2m)\x1b[m"},
 	}
 }
 
 // Theme is a theme for the Handler.
 type Theme struct {
-	Timestamp VariableThemeItem
-	Level     [4]FixedThemeItem
-	Message   VariableThemeItem
-	Key       VariableThemeItem
-	EqualSign VariableThemeItem
-	Source    VariableThemeItem
-	String    VariableThemeItem
-	Bool      VariableThemeItem
-	Number    VariableThemeItem
-	Null      VariableThemeItem
+	Timestamp    VariableThemeItem
+	Level        [4]FixedThemeItem
+	Message      VariableThemeItem
+	Key          VariableThemeItem
+	EqualSign    VariableThemeItem
+	Source       VariableThemeItem
+	String       VariableThemeItem
+	Bool         VariableThemeItem
+	Number       VariableThemeItem
+	Null         VariableThemeItem
+	Error        VariableThemeItem
+	Duration     VariableThemeItem
+	Time         VariableThemeItem
+	MarshalError VariableThemeItem
 }
 
 // Plain returns a theme with no color.
@@ -51,6 +59,9 @@ func (t Theme) Plain() Theme {
 		Bool:      t.Bool.Plain(),
 		Number:    t.Number.Plain(),
 		Null:      t.Null.Plain(),
+		Error:     t.Error.Plain(),
+		Duration:  t.Duration.Plain(),
+		Time:      t.Time.Plain(),
 	}
 }
 
@@ -74,6 +85,11 @@ func (i FixedThemeItem) Plain() FixedThemeItem {
 type VariableThemeItem struct {
 	Prefix string
 	Suffix string
+}
+
+// IsEmpty returns true if the theme item is empty.
+func (i VariableThemeItem) IsEmpty() bool {
+	return i.Prefix == "" && i.Suffix == ""
 }
 
 // Plain returns a theme item with no color.
