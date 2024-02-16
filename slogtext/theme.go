@@ -1,12 +1,16 @@
 package slogtext
 
-import "github.com/pamburus/slogx/internal/stripansi"
+import (
+	"strings"
+
+	"github.com/pamburus/slogx/internal/stripansi"
+)
 
 // ThemeDefault returns a theme with default colors.
 func ThemeDefault() Theme {
 	level := [4]FixedThemeItem{
-		{Text: "\x1b[2m|\x1b[0;95mDBG\x1b[0;2m|\x1b[m"},
-		{Text: "\x1b[2m|\x1b[0;96mINF\x1b[0;2m|\x1b[m"},
+		{Text: "\x1b[2m|\x1b[0;35mDBG\x1b[0;2m|\x1b[m"},
+		{Text: "\x1b[2m|\x1b[0;36mINF\x1b[0;2m|\x1b[m"},
 		{Text: "\x1b[2m|\x1b[0;93mWRN\x1b[0;2m|\x1b[m"},
 		{Text: "\x1b[2m|\x1b[0;91mERR\x1b[0;2m|\x1b[m"},
 	}
@@ -18,15 +22,27 @@ func ThemeDefault() Theme {
 		Key:          VariableThemeItem{Prefix: "\x1b[32m"},
 		EqualSign:    VariableThemeItem{Prefix: "\x1b[2m", Suffix: "\x1b[m"},
 		Source:       VariableThemeItem{Prefix: "\x1b[2;3m@ ", Suffix: "\x1b[m"},
-		String:       VariableThemeItem{},
+		Quote:        VariableThemeItem{Prefix: "\x1b[2m", Suffix: "\x1b[22m"},
+		Escape:       VariableThemeItem{Prefix: "\x1b[2m", Suffix: "\x1b[22m"},
 		Bool:         VariableThemeItem{Prefix: "\x1b[36m", Suffix: "\x1b[m"},
 		Number:       VariableThemeItem{Prefix: "\x1b[94m", Suffix: "\x1b[m"},
 		Null:         VariableThemeItem{Prefix: "\x1b[91m", Suffix: "\x1b[m"},
 		Error:        VariableThemeItem{Prefix: "\x1b[91m", Suffix: "\x1b[m"},
 		Duration:     VariableThemeItem{Prefix: "\x1b[94m", Suffix: "\x1b[m"},
-		Time:         VariableThemeItem{},
 		MarshalError: VariableThemeItem{Prefix: "\x1b[91;2m$!(ERROR: \x1b[22m", Suffix: "\x1b[2m)\x1b[m"},
 	}
+}
+
+// ThemeFancy returns a variant of default theme with fancy characters.
+func ThemeFancy() Theme {
+	theme := ThemeDefault()
+	for i := range theme.Level {
+		theme.Level[i].Text = strings.ReplaceAll(theme.Level[i].Text, "|", "│")
+	}
+
+	theme.Source.Prefix = strings.ReplaceAll(theme.Source.Prefix, "@", "→")
+
+	return theme
 }
 
 // ThemeTint returns a theme with emulation of color scheme of [tint](https://github.com/lmittmann/tint) package.
@@ -41,17 +57,10 @@ func ThemeTint() Theme {
 	return Theme{
 		Timestamp:    VariableThemeItem{Prefix: "\x1b[2m", Suffix: "\x1b[m"},
 		Level:        level,
-		Message:      VariableThemeItem{},
 		Key:          VariableThemeItem{Prefix: "\x1b[2m"},
 		EqualSign:    VariableThemeItem{Suffix: "\x1b[m"},
 		Source:       VariableThemeItem{Prefix: "\x1b[2;3m@ ", Suffix: "\x1b[m"},
-		String:       VariableThemeItem{},
-		Bool:         VariableThemeItem{},
-		Number:       VariableThemeItem{},
-		Null:         VariableThemeItem{},
 		Error:        VariableThemeItem{Prefix: "\x1b[91m", Suffix: "\x1b[m"},
-		Duration:     VariableThemeItem{},
-		Time:         VariableThemeItem{},
 		MarshalError: VariableThemeItem{Prefix: "\x1b[91;2m$!(ERROR: \x1b[22m", Suffix: "\x1b[2m)\x1b[m"},
 	}
 }
@@ -65,6 +74,8 @@ type Theme struct {
 	EqualSign    VariableThemeItem
 	Source       VariableThemeItem
 	String       VariableThemeItem
+	Quote        VariableThemeItem
+	Escape       VariableThemeItem
 	Bool         VariableThemeItem
 	Number       VariableThemeItem
 	Null         VariableThemeItem

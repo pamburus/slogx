@@ -367,7 +367,7 @@ func (h *Handler) appendValue(hs *handleState, v slog.Value, quote bool) {
 func (h *Handler) appendString(hs *handleState, s string, quote bool) {
 	if quote {
 		if s == "null" {
-			hs.buf.AppendString(`"null"`)
+			hs.buf.AppendString(h.styledQuotedNull)
 		} else {
 			h.appendAutoQuotedString(hs, s)
 		}
@@ -379,7 +379,7 @@ func (h *Handler) appendString(hs *handleState, s string, quote bool) {
 func (h *Handler) appendByteString(hs *handleState, s []byte, quote bool) {
 	if quote {
 		if bytes.Equal(s, []byte("null")) {
-			hs.buf.AppendString(`"null"`)
+			hs.buf.AppendString(h.styledQuotedNull)
 		} else {
 			h.appendAutoQuotedByteString(hs, s)
 		}
@@ -391,11 +391,11 @@ func (h *Handler) appendByteString(hs *handleState, s []byte, quote bool) {
 func (h *Handler) appendAutoQuotedString(hs *handleState, v string) {
 	switch {
 	case len(v) == 0:
-		hs.buf.AppendString(`""`)
+		hs.buf.AppendString(h.styledQuadQuote)
 	case quoting.IsNeeded(v):
-		hs.buf.AppendByte('"')
+		hs.buf.AppendString(h.styledDoubleQuote)
 		h.appendEscapedString(hs, v)
-		hs.buf.AppendByte('"')
+		hs.buf.AppendString(h.styledDoubleQuote)
 	default:
 		hs.buf.AppendString(v)
 	}
@@ -404,11 +404,11 @@ func (h *Handler) appendAutoQuotedString(hs *handleState, v string) {
 func (h *Handler) appendAutoQuotedByteString(hs *handleState, v []byte) {
 	switch {
 	case len(v) == 0:
-		hs.buf.AppendString(`""`)
+		hs.buf.AppendString(h.styledQuadQuote)
 	case quoting.IsNeededForBytes(v):
-		hs.buf.AppendByte('"')
+		hs.buf.AppendString(h.styledDoubleQuote)
 		h.appendEscapedByteString(hs, v)
-		hs.buf.AppendByte('"')
+		hs.buf.AppendString(h.styledDoubleQuote)
 	default:
 		hs.buf.AppendBytes(v)
 	}
@@ -427,21 +427,21 @@ func (h *Handler) appendEscapedString(hs *handleState, s string) {
 			hs.buf.AppendString(s[p:i])
 			switch c {
 			case '\t':
-				hs.buf.AppendString(`\t`)
+				hs.buf.AppendString(h.styledEscTab)
 			case '\r':
-				hs.buf.AppendString(`\r`)
+				hs.buf.AppendString(h.styledEscCR)
 			case '\n':
-				hs.buf.AppendString(`\n`)
+				hs.buf.AppendString(h.styledEscLF)
 			case '\\':
-				hs.buf.AppendByte('\\')
-				hs.buf.AppendByte('\\')
+				hs.buf.AppendString(h.styledEscBackslash)
 			case '"':
-				hs.buf.AppendByte('\\')
-				hs.buf.AppendByte('"')
+				hs.buf.AppendString(h.styledEscQuote)
 			default:
+				hs.buf.AppendString(h.theme.Escape.Prefix)
 				hs.buf.AppendString(`\u00`)
 				hs.buf.AppendByte(hex[c>>4])
 				hs.buf.AppendByte(hex[c&0xf])
+				hs.buf.AppendString(h.theme.Escape.Suffix)
 			}
 			i++
 			p = i
@@ -450,7 +450,9 @@ func (h *Handler) appendEscapedString(hs *handleState, s string) {
 			v, wd := utf8.DecodeRuneInString(s[i:])
 			if v == utf8.RuneError && wd == 1 {
 				hs.buf.AppendString(s[p:i])
+				hs.buf.AppendString(h.theme.Escape.Prefix)
 				hs.buf.AppendString(`\ufffd`)
+				hs.buf.AppendString(h.theme.Escape.Suffix)
 				i++
 				p = i
 			} else {
@@ -475,21 +477,21 @@ func (h *Handler) appendEscapedByteString(hs *handleState, s []byte) {
 			hs.buf.AppendBytes(s[p:i])
 			switch c {
 			case '\t':
-				hs.buf.AppendString(`\t`)
+				hs.buf.AppendString(h.styledEscTab)
 			case '\r':
-				hs.buf.AppendString(`\r`)
+				hs.buf.AppendString(h.styledEscCR)
 			case '\n':
-				hs.buf.AppendString(`\n`)
+				hs.buf.AppendString(h.styledEscLF)
 			case '\\':
-				hs.buf.AppendByte('\\')
-				hs.buf.AppendByte('\\')
+				hs.buf.AppendString(h.styledEscBackslash)
 			case '"':
-				hs.buf.AppendByte('\\')
-				hs.buf.AppendByte('"')
+				hs.buf.AppendString(h.styledEscQuote)
 			default:
+				hs.buf.AppendString(h.theme.Escape.Prefix)
 				hs.buf.AppendString(`\u00`)
 				hs.buf.AppendByte(hex[c>>4])
 				hs.buf.AppendByte(hex[c&0xf])
+				hs.buf.AppendString(h.theme.Escape.Suffix)
 			}
 			i++
 			p = i
@@ -498,7 +500,9 @@ func (h *Handler) appendEscapedByteString(hs *handleState, s []byte) {
 			v, wd := utf8.DecodeRune(s[i:])
 			if v == utf8.RuneError && wd == 1 {
 				hs.buf.AppendBytes(s[p:i])
+				hs.buf.AppendString(h.theme.Escape.Prefix)
 				hs.buf.AppendString(`\ufffd`)
+				hs.buf.AppendString(h.theme.Escape.Suffix)
 				i++
 				p = i
 			} else {
@@ -521,10 +525,10 @@ func (h *Handler) appendLevel(hs *handleState, level slog.Level) {
 
 func (h *Handler) appendLevelValue(hs *handleState, level slog.Level) {
 	const (
-		textDebug = "DEBUG"
-		textInfo  = "INFO"
-		textWarn  = "WARN"
-		textError = "ERROR"
+		textDebug = "DBG"
+		textInfo  = "INF"
+		textWarn  = "WRN"
+		textError = "ERR"
 	)
 
 	switch {
@@ -582,12 +586,14 @@ type shared struct {
 // ---
 
 func newThemeCache(theme *Theme) themeCache {
-	return themeCache{
+	tc := themeCache{
 		styleSource:       newStyle(theme.Source).withExtraSuffix(" "),
 		styleTimestamp:    newStyle(theme.Timestamp).withExtraSuffix(" "),
 		styleKey:          newStyle(theme.Key).withExtraSuffix(theme.EqualSign.Prefix + "=" + theme.EqualSign.Suffix),
 		styleMessage:      newStyle(theme.Message).withExtraSuffix(" "),
 		styleString:       newStyle(theme.String),
+		styleQuote:        newStyle(theme.Quote),
+		styleEscape:       newStyle(theme.Escape),
 		styleNumber:       newStyle(theme.Number),
 		styleBool:         newStyle(theme.Bool),
 		styleNull:         newStyle(theme.Null),
@@ -596,21 +602,42 @@ func newThemeCache(theme *Theme) themeCache {
 		styleTime:         newStyle(theme.Time),
 		styleMarshalError: newStyle(theme.MarshalError),
 	}
+
+	tc.styledDoubleQuote = tc.styleQuote.prefix + `"` + tc.styleQuote.suffix
+	tc.styledQuadQuote = tc.styleQuote.prefix + `""` + tc.styleQuote.suffix
+	tc.styledQuotedNull = tc.styleQuote.prefix + `"` + tc.styleQuote.suffix + `null` + tc.styleQuote.prefix + `"` + tc.styleQuote.suffix
+	tc.styledEscTab = tc.styleEscape.prefix + `\t` + tc.styleEscape.suffix
+	tc.styledEscCR = tc.styleEscape.prefix + `\r` + tc.styleEscape.suffix
+	tc.styledEscLF = tc.styleEscape.prefix + `\n` + tc.styleEscape.suffix
+	tc.styledEscBackslash = tc.styleEscape.prefix + `\` + tc.styleEscape.suffix + `\`
+	tc.styledEscQuote = tc.styleEscape.prefix + `\` + tc.styleEscape.suffix + `"`
+
+	return tc
 }
 
 type themeCache struct {
-	styleSource       style
-	styleTimestamp    style
-	styleKey          style
-	styleMessage      style
-	styleString       style
-	styleNumber       style
-	styleBool         style
-	styleNull         style
-	styleError        style
-	styleDuration     style
-	styleTime         style
-	styleMarshalError style
+	styleSource        style
+	styleTimestamp     style
+	styleKey           style
+	styleMessage       style
+	styleString        style
+	styleQuote         style
+	styleEscape        style
+	styleNumber        style
+	styleBool          style
+	styleNull          style
+	styleError         style
+	styleDuration      style
+	styleTime          style
+	styleMarshalError  style
+	styledDoubleQuote  string
+	styledQuadQuote    string
+	styledQuotedNull   string
+	styledEscTab       string
+	styledEscCR        string
+	styledEscLF        string
+	styledEscBackslash string
+	styledEscQuote     string
 }
 
 // ---

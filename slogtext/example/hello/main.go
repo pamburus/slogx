@@ -18,6 +18,7 @@ func main() {
 	var handler slog.Handler = slogtext.NewHandler(os.Stdout,
 		slogtext.WithLevel(slog.LevelDebug),
 		slogtext.WithSource(true),
+		slogtext.WithTheme(slogtext.ThemeFancy()),
 	)
 
 	// Create logger and set it as default.
