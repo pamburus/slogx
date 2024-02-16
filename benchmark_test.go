@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/pamburus/slogx"
+	"github.com/pamburus/slogx/slogtext"
 )
 
 func BenchmarkLogger(b *testing.B) {
@@ -232,12 +233,33 @@ func benchmarkSLogXLogger(b *testing.B, longTerm bool) {
 		})
 	})
 
-	b.Run("JSON", func(b *testing.B) {
+	b.Run("slog.JSONHandler", func(b *testing.B) {
 		b.Run("Disabled", func(b *testing.B) {
 			testAllForHandler(b, slog.NewJSONHandler(io.Discard, &slog.HandlerOptions{Level: slog.LevelError}))
 		})
 		b.Run("Enabled", func(b *testing.B) {
 			testAllForHandler(b, slog.NewJSONHandler(io.Discard, &slog.HandlerOptions{}))
+		})
+	})
+
+	b.Run("slog.TextHandler", func(b *testing.B) {
+		b.Run("Disabled", func(b *testing.B) {
+			testAllForHandler(b, slog.NewTextHandler(io.Discard, &slog.HandlerOptions{Level: slog.LevelError}))
+		})
+		b.Run("Enabled", func(b *testing.B) {
+			testAllForHandler(b, slog.NewTextHandler(io.Discard, &slog.HandlerOptions{}))
+		})
+	})
+
+	b.Run("slogtext.Handler", func(b *testing.B) {
+		b.Run("Disabled", func(b *testing.B) {
+			testAllForHandler(b, slogtext.NewHandler(io.Discard,
+				slogtext.WithLevel(slog.LevelError),
+				slogtext.WithColor(slogtext.ColorAlways),
+			))
+		})
+		b.Run("Enabled", func(b *testing.B) {
+			testAllForHandler(b, slogtext.NewHandler(io.Discard))
 		})
 	})
 }

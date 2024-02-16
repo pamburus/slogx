@@ -111,7 +111,7 @@ func BenchmarkHandler(b *testing.B) {
 		b.Run("WithGroupSecondAndHandle", do(withGroup("first-group", testWithGroupAndHandle)))
 	}
 
-	b.Run("slogtext", func(b *testing.B) {
+	b.Run("slogtext.Handler", func(b *testing.B) {
 		options := []slogtext.Option{
 			slogtext.WithSource(false),
 		}
@@ -134,7 +134,7 @@ func BenchmarkHandler(b *testing.B) {
 		testSuite(b, withColorVariants)
 	})
 
-	b.Run("slog", func(b *testing.B) {
+	b.Run("slog.TextHandler", func(b *testing.B) {
 		withFormatVariants := func(test testFunc) func(b *testing.B) {
 			return func(b *testing.B) {
 				b.Run("JSON", test(
