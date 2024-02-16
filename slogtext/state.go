@@ -10,7 +10,6 @@ import (
 func newHandleState(ctx context.Context, h *Handler) *handleState {
 	s := handleStatePool.Get().(*handleState)
 	s.ctx = ctx
-	s.h = h
 	s.groups = h.groupKeys.collect(s.groups)
 
 	return s
@@ -18,7 +17,6 @@ func newHandleState(ctx context.Context, h *Handler) *handleState {
 
 type handleState struct {
 	ctx            context.Context
-	h              *Handler
 	buf            buffer
 	scratch        buffer
 	keyPrefix      buffer
@@ -35,7 +33,6 @@ func (s *handleState) release() {
 	}
 
 	s.ctx = nil
-	s.h = nil
 	s.buf.Reset()
 	s.scratch.Reset()
 	s.groups = s.groups[:0]

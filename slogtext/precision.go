@@ -39,10 +39,6 @@ func (p *Precision) UnmarshalText(text []byte) error {
 	return nil
 }
 
-func (p Precision) toDurationOptions(o *durationOptions) {
-	o.precision = p
-}
-
 // ---
 
 var (

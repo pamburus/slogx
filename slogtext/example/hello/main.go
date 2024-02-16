@@ -1,3 +1,4 @@
+// Package main is an example of how to use the slogtext package.
 package main
 
 import (

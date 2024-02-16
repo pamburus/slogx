@@ -34,7 +34,6 @@ func WithSource(include bool) Option {
 	return func(o *options) {
 		o.includeSource = include
 	}
-
 }
 
 // WithTheme sets the theme for the Handler.
@@ -84,7 +83,7 @@ const (
 // ReplaceAttrFunc is a function that replaces the attributes in the log message.
 type ReplaceAttrFunc func([]string, slog.Attr) slog.Attr
 
-// TimesEncodeFunc is a function that encodes the time in the log message.
+// TimeEncodeFunc is a function that encodes the time in the log message.
 type TimeEncodeFunc func([]byte, time.Time) []byte
 
 // DurationEncodeFunc is a function that encodes the duration in the log message.

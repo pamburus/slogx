@@ -35,12 +35,13 @@ func NewHandler(writer io.Writer, options ...Option) *Handler {
 	}
 
 	if opts.color == ColorNever {
-		opts.theme = ThemePlain()
+		opts.theme = opts.theme.Plain()
 	}
 
 	return &Handler{
 		shared: &shared{
 			opts,
+			newThemeCache(&opts.theme),
 			sync.Mutex{},
 			writer,
 		},
@@ -78,6 +79,7 @@ func (h *Handler) Handle(ctx context.Context, record slog.Record) error {
 
 	if !record.Time.IsZero() {
 		val := record.Time.Round(0)
+		hs.buf.AppendString(h.timestampStylePrefix)
 		if rep == nil {
 			h.appendTimestamp(hs, record.Time)
 		} else if attr := rep(nil, slog.Time(slog.TimeKey, val)); attr.Key != "" {
@@ -87,7 +89,7 @@ func (h *Handler) Handle(ctx context.Context, record slog.Record) error {
 				h.appendValue(hs, attr.Value, false)
 			}
 		}
-		hs.buf.AppendByte(' ')
+		hs.buf.AppendString(h.timestampStyleSuffix)
 	}
 
 	if rep == nil {
@@ -107,21 +109,21 @@ func (h *Handler) Handle(ctx context.Context, record slog.Record) error {
 	h.appendHandlerAttrs(hs)
 
 	record.Attrs(func(attr slog.Attr) bool {
-		h.appendAttr(hs, attr, len(hs.h.keyPrefix))
+		h.appendAttr(hs, attr, len(h.keyPrefix))
+
 		return true
 	})
 
 	if h.includeSource {
 		src := h.source(record.PC)
 		if src.File != "" {
-			hs.buf.AppendString(h.theme.Source.Prefix)
+			hs.buf.AppendString(h.sourceStylePrefix)
 			if rep == nil {
 				h.appendSource(hs, src)
 			} else if attr := rep(nil, slog.Any(slog.SourceKey, src)); attr.Key != "" {
 				h.appendValue(hs, attr.Value, false)
 			}
-			hs.buf.AppendString(h.theme.Source.Suffix)
-			hs.buf.AppendByte(' ')
+			hs.buf.AppendString(h.sourceStyleSuffix)
 		}
 	}
 
@@ -192,9 +194,7 @@ func (h *Handler) fork() *Handler {
 }
 
 func (h *Handler) appendTimestamp(hs *handleState, value time.Time) {
-	hs.buf.AppendString(hs.h.theme.Timestamp.Prefix)
 	hs.buf = h.encodeTimestamp(hs.buf, value)
-	hs.buf.AppendString(hs.h.theme.Timestamp.Suffix)
 }
 
 func (h *Handler) appendTime(hs *handleState, value time.Time, quote bool) {
@@ -252,8 +252,8 @@ func (h *Handler) appendHandlerAttrs(hs *handleState) {
 		appended = true
 	})
 
-	if !appended && len(hs.h.cache.attrs) != 0 {
-		hs.buf.AppendString(hs.h.cache.attrs)
+	if !appended && len(h.cache.attrs) != 0 {
+		hs.buf.AppendString(h.cache.attrs)
 	}
 }
 
@@ -289,11 +289,11 @@ func (h *Handler) appendAttr(hs *handleState, attr slog.Attr, basePrefixLen int)
 }
 
 func (h *Handler) appendKey(hs *handleState, key string, basePrefixLen int) {
-	hs.buf.AppendString(hs.h.theme.Key.Prefix)
-	hs.buf.AppendString(hs.h.keyPrefix[:basePrefixLen])
+	hs.buf.AppendString(h.keyStylePrefix)
+	hs.buf.AppendString(h.keyPrefix[:basePrefixLen])
 	hs.buf.AppendBytes(hs.keyPrefix)
 	hs.buf.AppendString(key)
-	hs.buf.AppendString(hs.h.theme.Key.Suffix)
+	hs.buf.AppendString(h.keyStyleSuffix)
 }
 
 func (h *Handler) appendValue(hs *handleState, v slog.Value, quote bool) {
@@ -486,7 +486,7 @@ func (h *Handler) appendSource(hs *handleState, source slog.Source) {
 
 func (h *Handler) appendLevel(hs *handleState, level slog.Level) {
 	i := min(max(0, (level+4)/4), 3)
-	hs.buf.AppendString(hs.h.theme.Level[i].Text)
+	hs.buf.AppendString(h.theme.Level[i].Text)
 }
 
 func (h *Handler) source(pc uintptr) slog.Source {
@@ -504,8 +504,32 @@ func (h *Handler) source(pc uintptr) slog.Source {
 
 type shared struct {
 	options
+	themeCache
+
 	mu     sync.Mutex
 	writer io.Writer
+}
+
+// ---
+
+func newThemeCache(theme *Theme) themeCache {
+	return themeCache{
+		keyStylePrefix:       theme.Key.Prefix,
+		keyStyleSuffix:       theme.Key.Suffix + theme.EqualSign.Prefix + "=" + theme.EqualSign.Suffix,
+		sourceStylePrefix:    theme.Source.Prefix,
+		sourceStyleSuffix:    theme.Source.Suffix + " ",
+		timestampStylePrefix: theme.Timestamp.Prefix,
+		timestampStyleSuffix: theme.Timestamp.Suffix + " ",
+	}
+}
+
+type themeCache struct {
+	keyStylePrefix       string
+	keyStyleSuffix       string
+	sourceStylePrefix    string
+	sourceStyleSuffix    string
+	timestampStylePrefix string
+	timestampStyleSuffix string
 }
 
 // ---
@@ -514,18 +538,6 @@ type groupKeys struct {
 	head    [4]string
 	tail    []string
 	headLen int
-}
-
-func (g *groupKeys) len() int {
-	return g.headLen + len(g.tail)
-}
-
-func (g *groupKeys) at(i int) string {
-	if i < g.headLen {
-		return g.head[i]
-	}
-
-	return g.tail[i-g.headLen]
 }
 
 func (g *groupKeys) append(key string) {

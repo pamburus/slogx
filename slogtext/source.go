@@ -6,8 +6,8 @@ import (
 	"strings"
 )
 
-// CallerShort returns a CallerEncodeFunc that encodes caller
-// keeping only package name, base filename and line number.
+// SourceShort returns a SourceEncodeFunc that encodes source keeping only the file name,
+// it's parent folder name and line number.
 func SourceShort() SourceEncodeFunc {
 	fileWithPackage := func(src slog.Source) string {
 		found := strings.LastIndexByte(src.File, '/')
@@ -31,7 +31,7 @@ func SourceShort() SourceEncodeFunc {
 	}
 }
 
-// CallerLong returns a CallerEncodeFunc that encodes caller keeping full file path and line number.
+// SourceLong returns a SourceEncodeFunc that encodes source keeping the full file path and line number.
 func SourceLong() SourceEncodeFunc {
 	return func(buf []byte, src slog.Source) []byte {
 		buf = append(buf, src.File...)
