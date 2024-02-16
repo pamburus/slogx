@@ -337,13 +337,12 @@ func (h *Handler) appendValue(hs *handleState, v slog.Value, quote bool) {
 			h.styleNull.apply(hs, func() {
 				hs.buf.AppendString("null")
 			})
+		case fmt.Stringer:
+			if v, ok := safeResolveValue(h, hs, v.String); ok {
+				h.appendString(hs, v, quote)
+			}
 		case encoding.TextMarshaler:
-			data, err := v.MarshalText()
-			if err != nil {
-				h.styleMarshalError.apply(hs, func() {
-					h.appendString(hs, err.Error(), quote)
-				})
-			} else {
+			if data, ok := safeResolveValueErr(h, hs, v.MarshalText); ok {
 				h.appendByteString(hs, data, quote)
 			}
 		case error:
@@ -393,12 +392,16 @@ func (h *Handler) appendAutoQuotedString(hs *handleState, v string) {
 	case len(v) == 0:
 		hs.buf.AppendString(h.styledQuadQuote)
 	case quoting.IsNeeded(v):
-		hs.buf.AppendString(h.styledDoubleQuote)
-		h.appendEscapedString(hs, v)
-		hs.buf.AppendString(h.styledDoubleQuote)
+		h.appendQuotedString(hs, v)
 	default:
 		hs.buf.AppendString(v)
 	}
+}
+
+func (h *Handler) appendQuotedString(hs *handleState, v string) {
+	hs.buf.AppendString(h.styledDoubleQuote)
+	h.appendEscapedString(hs, v)
+	hs.buf.AppendString(h.styledDoubleQuote)
 }
 
 func (h *Handler) appendAutoQuotedByteString(hs *handleState, v []byte) {
@@ -406,12 +409,16 @@ func (h *Handler) appendAutoQuotedByteString(hs *handleState, v []byte) {
 	case len(v) == 0:
 		hs.buf.AppendString(h.styledQuadQuote)
 	case quoting.IsNeededForBytes(v):
-		hs.buf.AppendString(h.styledDoubleQuote)
-		h.appendEscapedByteString(hs, v)
-		hs.buf.AppendString(h.styledDoubleQuote)
+		h.appendQuotedByteString(hs, v)
 	default:
 		hs.buf.AppendBytes(v)
 	}
+}
+
+func (h *Handler) appendQuotedByteString(hs *handleState, v []byte) {
+	hs.buf.AppendString(h.styledDoubleQuote)
+	h.appendEscapedByteString(hs, v)
+	hs.buf.AppendString(h.styledDoubleQuote)
 }
 
 func (h *Handler) appendEscapedString(hs *handleState, s string) {
@@ -573,6 +580,21 @@ func (h *Handler) source(pc uintptr) slog.Source {
 	}
 }
 
+func (h *Handler) appendEncodeError(hs *handleState, err error) {
+	h.styleEncodeError.apply(hs, func() {
+		h.appendQuotedString(hs, err.Error())
+	})
+}
+
+func (h *Handler) appendEncodePanic(hs *handleState, p any) {
+	hs.scratch.Reset()
+	_, _ = fmt.Fprintf(&hs.scratch, "%v", p)
+
+	h.styleEncodePanic.apply(hs, func() {
+		h.appendQuotedByteString(hs, hs.scratch)
+	})
+}
+
 // ---
 
 type shared struct {
@@ -587,20 +609,21 @@ type shared struct {
 
 func newThemeCache(theme *Theme) themeCache {
 	tc := themeCache{
-		styleSource:       newStyle(theme.Source).withExtraSuffix(" "),
-		styleTimestamp:    newStyle(theme.Timestamp).withExtraSuffix(" "),
-		styleKey:          newStyle(theme.Key).withExtraSuffix(theme.EqualSign.Prefix + "=" + theme.EqualSign.Suffix),
-		styleMessage:      newStyle(theme.Message).withExtraSuffix(" "),
-		styleString:       newStyle(theme.String),
-		styleQuote:        newStyle(theme.Quote),
-		styleEscape:       newStyle(theme.Escape),
-		styleNumber:       newStyle(theme.Number),
-		styleBool:         newStyle(theme.Bool),
-		styleNull:         newStyle(theme.Null),
-		styleError:        newStyle(theme.Error),
-		styleDuration:     newStyle(theme.Duration),
-		styleTime:         newStyle(theme.Time),
-		styleMarshalError: newStyle(theme.MarshalError),
+		styleSource:      newStyle(theme.Source).withExtraSuffix(" "),
+		styleTimestamp:   newStyle(theme.Timestamp).withExtraSuffix(" "),
+		styleKey:         newStyle(theme.Key).withExtraSuffix(theme.EqualSign.Prefix + "=" + theme.EqualSign.Suffix),
+		styleMessage:     newStyle(theme.Message).withExtraSuffix(" "),
+		styleString:      newStyle(theme.String),
+		styleQuote:       newStyle(theme.Quote),
+		styleEscape:      newStyle(theme.Escape),
+		styleNumber:      newStyle(theme.Number),
+		styleBool:        newStyle(theme.Bool),
+		styleNull:        newStyle(theme.Null),
+		styleError:       newStyle(theme.Error),
+		styleDuration:    newStyle(theme.Duration),
+		styleTime:        newStyle(theme.Time),
+		styleEncodeError: newStyle(theme.EncodeError),
+		styleEncodePanic: newStyle(theme.EncodePanic),
 	}
 
 	tc.styledDoubleQuote = tc.styleQuote.prefix + `"` + tc.styleQuote.suffix
@@ -629,7 +652,8 @@ type themeCache struct {
 	styleError         style
 	styleDuration      style
 	styleTime          style
-	styleMarshalError  style
+	styleEncodeError   style
+	styleEncodePanic   style
 	styledDoubleQuote  string
 	styledQuadQuote    string
 	styledQuotedNull   string
@@ -740,6 +764,35 @@ func (s *style) apply(hs *handleState, appendValue func()) {
 		appendValue()
 		s.close(hs)
 	}
+}
+
+// ---
+
+func safeResolveValue[T any](h *Handler, hs *handleState, resolve func() T) (_ T, ok bool) {
+	defer func() {
+		if p := recover(); p != nil {
+			h.appendEncodePanic(hs, p)
+			ok = false
+		}
+	}()
+
+	return resolve(), true
+}
+
+func safeResolveValueErr[T any](h *Handler, hs *handleState, resolve func() (T, error)) (value T, ok bool) {
+	var err error
+
+	defer func() {
+		if p := recover(); p != nil {
+			h.appendEncodePanic(hs, p)
+		} else if err != nil {
+			h.appendEncodeError(hs, err)
+		}
+	}()
+
+	value, err = resolve()
+
+	return value, err == nil
 }
 
 // ---

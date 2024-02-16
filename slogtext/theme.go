@@ -16,20 +16,21 @@ func ThemeDefault() Theme {
 	}
 
 	return Theme{
-		Timestamp:    VariableThemeItem{Prefix: "\x1b[2m", Suffix: "\x1b[m"},
-		Level:        level,
-		Message:      VariableThemeItem{Prefix: "\x1b[1m", Suffix: "\x1b[m"},
-		Key:          VariableThemeItem{Prefix: "\x1b[32m"},
-		EqualSign:    VariableThemeItem{Prefix: "\x1b[2m", Suffix: "\x1b[m"},
-		Source:       VariableThemeItem{Prefix: "\x1b[2;3m@ ", Suffix: "\x1b[m"},
-		Quote:        VariableThemeItem{Prefix: "\x1b[2m", Suffix: "\x1b[22m"},
-		Escape:       VariableThemeItem{Prefix: "\x1b[2m", Suffix: "\x1b[22m"},
-		Bool:         VariableThemeItem{Prefix: "\x1b[36m", Suffix: "\x1b[m"},
-		Number:       VariableThemeItem{Prefix: "\x1b[94m", Suffix: "\x1b[m"},
-		Null:         VariableThemeItem{Prefix: "\x1b[91m", Suffix: "\x1b[m"},
-		Error:        VariableThemeItem{Prefix: "\x1b[91m", Suffix: "\x1b[m"},
-		Duration:     VariableThemeItem{Prefix: "\x1b[94m", Suffix: "\x1b[m"},
-		MarshalError: VariableThemeItem{Prefix: "\x1b[91;2m$!(ERROR: \x1b[22m", Suffix: "\x1b[2m)\x1b[m"},
+		Timestamp:   VariableThemeItem{Prefix: "\x1b[2m", Suffix: "\x1b[m"},
+		Level:       level,
+		Message:     VariableThemeItem{Prefix: "\x1b[1m", Suffix: "\x1b[m"},
+		Key:         VariableThemeItem{Prefix: "\x1b[32m"},
+		EqualSign:   VariableThemeItem{Prefix: "\x1b[2m", Suffix: "\x1b[m"},
+		Source:      VariableThemeItem{Prefix: "\x1b[2;3m@ ", Suffix: "\x1b[m"},
+		Quote:       VariableThemeItem{Prefix: "\x1b[2m", Suffix: "\x1b[22m"},
+		Escape:      VariableThemeItem{Prefix: "\x1b[2m", Suffix: "\x1b[22m"},
+		Bool:        VariableThemeItem{Prefix: "\x1b[36m", Suffix: "\x1b[m"},
+		Number:      VariableThemeItem{Prefix: "\x1b[94m", Suffix: "\x1b[m"},
+		Null:        VariableThemeItem{Prefix: "\x1b[31m", Suffix: "\x1b[m"},
+		Error:       VariableThemeItem{Prefix: "\x1b[31m", Suffix: "\x1b[m"},
+		Duration:    VariableThemeItem{Prefix: "\x1b[94m", Suffix: "\x1b[m"},
+		EncodeError: VariableThemeItem{Prefix: "\x1b[31;2m$!(ERROR: \x1b[22m", Suffix: "\x1b[2m)\x1b[m"},
+		EncodePanic: VariableThemeItem{Prefix: "\x1b[31;2m$!(PANIC: \x1b[22m", Suffix: "\x1b[2m)\x1b[m"},
 	}
 }
 
@@ -49,57 +50,65 @@ func ThemeFancy() Theme {
 func ThemeTint() Theme {
 	level := [4]FixedThemeItem{
 		{Text: "DBG"},
-		{Text: "\x1b[92mINF\x1b[m"},
+		{Text: "\x1b[32mINF\x1b[m"},
 		{Text: "\x1b[93mWRN\x1b[m"},
 		{Text: "\x1b[91mERR\x1b[m"},
 	}
 
 	return Theme{
-		Timestamp:    VariableThemeItem{Prefix: "\x1b[2m", Suffix: "\x1b[m"},
-		Level:        level,
-		Key:          VariableThemeItem{Prefix: "\x1b[2m"},
-		EqualSign:    VariableThemeItem{Suffix: "\x1b[m"},
-		Source:       VariableThemeItem{Prefix: "\x1b[2;3m@ ", Suffix: "\x1b[m"},
-		Error:        VariableThemeItem{Prefix: "\x1b[91m", Suffix: "\x1b[m"},
-		MarshalError: VariableThemeItem{Prefix: "\x1b[91;2m$!(ERROR: \x1b[22m", Suffix: "\x1b[2m)\x1b[m"},
+		Timestamp:   VariableThemeItem{Prefix: "\x1b[2m", Suffix: "\x1b[m"},
+		Level:       level,
+		Key:         VariableThemeItem{Prefix: "\x1b[2m"},
+		EqualSign:   VariableThemeItem{Suffix: "\x1b[m"},
+		Source:      VariableThemeItem{Prefix: "\x1b[2;3m@ ", Suffix: "\x1b[m"},
+		Escape:      VariableThemeItem{Prefix: "\x1b[2m", Suffix: "\x1b[22m"},
+		Error:       VariableThemeItem{Prefix: "\x1b[31m", Suffix: "\x1b[m"},
+		EncodeError: VariableThemeItem{Prefix: "\x1b[31;2m$!(ERROR: \x1b[22m", Suffix: "\x1b[2m)\x1b[m"},
+		EncodePanic: VariableThemeItem{Prefix: "\x1b[31;2m$!(PANIC: \x1b[22m", Suffix: "\x1b[2m)\x1b[m"},
 	}
 }
 
 // Theme is a theme for the Handler.
 type Theme struct {
-	Timestamp    VariableThemeItem
-	Level        [4]FixedThemeItem
-	Message      VariableThemeItem
-	Key          VariableThemeItem
-	EqualSign    VariableThemeItem
-	Source       VariableThemeItem
-	String       VariableThemeItem
-	Quote        VariableThemeItem
-	Escape       VariableThemeItem
-	Bool         VariableThemeItem
-	Number       VariableThemeItem
-	Null         VariableThemeItem
-	Error        VariableThemeItem
-	Duration     VariableThemeItem
-	Time         VariableThemeItem
-	MarshalError VariableThemeItem
+	Timestamp   VariableThemeItem
+	Level       [4]FixedThemeItem
+	Message     VariableThemeItem
+	Key         VariableThemeItem
+	EqualSign   VariableThemeItem
+	Source      VariableThemeItem
+	String      VariableThemeItem
+	Quote       VariableThemeItem
+	Escape      VariableThemeItem
+	Bool        VariableThemeItem
+	Number      VariableThemeItem
+	Null        VariableThemeItem
+	Error       VariableThemeItem
+	Duration    VariableThemeItem
+	Time        VariableThemeItem
+	EncodeError VariableThemeItem
+	EncodePanic VariableThemeItem
 }
 
 // Plain returns a theme with no color.
 func (t Theme) Plain() Theme {
 	return Theme{
-		Timestamp: t.Timestamp.Plain(),
-		Level:     [4]FixedThemeItem{t.Level[0].Plain(), t.Level[1].Plain(), t.Level[2].Plain(), t.Level[3].Plain()},
-		Message:   t.Message.Plain(),
-		Key:       t.Key.Plain(),
-		Source:    t.Source.Plain(),
-		String:    t.String.Plain(),
-		Bool:      t.Bool.Plain(),
-		Number:    t.Number.Plain(),
-		Null:      t.Null.Plain(),
-		Error:     t.Error.Plain(),
-		Duration:  t.Duration.Plain(),
-		Time:      t.Time.Plain(),
+		Timestamp:   t.Timestamp.Plain(),
+		Level:       [4]FixedThemeItem{t.Level[0].Plain(), t.Level[1].Plain(), t.Level[2].Plain(), t.Level[3].Plain()},
+		Message:     t.Message.Plain(),
+		Key:         t.Key.Plain(),
+		EqualSign:   t.EqualSign.Plain(),
+		Source:      t.Source.Plain(),
+		String:      t.String.Plain(),
+		Quote:       t.Quote.Plain(),
+		Escape:      t.Escape.Plain(),
+		Bool:        t.Bool.Plain(),
+		Number:      t.Number.Plain(),
+		Null:        t.Null.Plain(),
+		Error:       t.Error.Plain(),
+		Duration:    t.Duration.Plain(),
+		Time:        t.Time.Plain(),
+		EncodeError: t.EncodeError.Plain(),
+		EncodePanic: t.EncodePanic.Plain(),
 	}
 }
 
