@@ -10,7 +10,7 @@ import (
 	"github.com/pamburus/slogx/slogc"
 )
 
-func BenchmarkLogging(b *testing.B) {
+func BenchmarkContextLogging(b *testing.B) {
 	testEnabled := func(ctx context.Context, b *testing.B) {
 		b.Run("Enabled", func(b *testing.B) {
 			b.ResetTimer()
@@ -148,7 +148,7 @@ func BenchmarkLogging(b *testing.B) {
 		})
 	})
 
-	b.Run("JSON", func(b *testing.B) {
+	b.Run("slog.JSONHandler", func(b *testing.B) {
 		b.Run("Disabled", func(b *testing.B) {
 			testAllForHandler(context.Background(), b, slog.NewJSONHandler(io.Discard, &slog.HandlerOptions{Level: slog.LevelError}))
 		})
