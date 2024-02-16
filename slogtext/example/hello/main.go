@@ -32,7 +32,10 @@ func main() {
 	logger.Info("start")
 	logger.Error("hello there",
 		slog.Any("error", errors.New("failed to figure out what to do next")),
-		slog.Int("", 42),
+		slog.Int("int", 42),
+		slog.Bool("bool", true),
+		slog.Any("null", nil),
+		slog.Float64("float", 3.14),
 		slog.Group("aaa", slog.Attr{}),
 		slog.Group("oo", slog.String("oo", ":)")),
 	)

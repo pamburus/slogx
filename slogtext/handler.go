@@ -79,7 +79,7 @@ func (h *Handler) Handle(ctx context.Context, record slog.Record) error {
 
 	if !record.Time.IsZero() {
 		val := record.Time.Round(0)
-		hs.buf.AppendString(h.timestampStylePrefix)
+		h.styleTimestamp.open(hs)
 		if rep == nil {
 			h.appendTimestamp(hs, record.Time)
 		} else if attr := rep(nil, slog.Time(slog.TimeKey, val)); attr.Key != "" {
@@ -89,7 +89,7 @@ func (h *Handler) Handle(ctx context.Context, record slog.Record) error {
 				h.appendValue(hs, attr.Value, false)
 			}
 		}
-		hs.buf.AppendString(h.timestampStyleSuffix)
+		h.styleTimestamp.close(hs)
 	}
 
 	if rep == nil {
@@ -99,12 +99,13 @@ func (h *Handler) Handle(ctx context.Context, record slog.Record) error {
 	}
 	hs.buf.AppendByte(' ')
 
+	h.styleMessage.open(hs)
 	if rep == nil {
 		hs.buf.AppendString(record.Message)
 	} else if a := rep(nil, slog.String(slog.MessageKey, record.Message)); a.Key != "" {
 		h.appendValue(hs, a.Value, false)
 	}
-	hs.buf.AppendByte(' ')
+	h.styleMessage.close(hs)
 
 	h.appendHandlerAttrs(hs)
 
@@ -117,13 +118,13 @@ func (h *Handler) Handle(ctx context.Context, record slog.Record) error {
 	if h.includeSource {
 		src := h.source(record.PC)
 		if src.File != "" {
-			hs.buf.AppendString(h.sourceStylePrefix)
+			h.styleSource.open(hs)
 			if rep == nil {
 				h.appendSource(hs, src)
 			} else if attr := rep(nil, slog.Any(slog.SourceKey, src)); attr.Key != "" {
 				h.appendValue(hs, attr.Value, false)
 			}
-			hs.buf.AppendString(h.sourceStyleSuffix)
+			h.styleSource.close(hs)
 		}
 	}
 
@@ -289,11 +290,11 @@ func (h *Handler) appendAttr(hs *handleState, attr slog.Attr, basePrefixLen int)
 }
 
 func (h *Handler) appendKey(hs *handleState, key string, basePrefixLen int) {
-	hs.buf.AppendString(h.keyStylePrefix)
+	hs.buf.AppendString(h.styleKey.prefix)
 	hs.buf.AppendString(h.keyPrefix[:basePrefixLen])
 	hs.buf.AppendBytes(hs.keyPrefix)
 	hs.buf.AppendString(key)
-	hs.buf.AppendString(h.keyStyleSuffix)
+	hs.buf.AppendString(h.styleKey.suffix)
 }
 
 func (h *Handler) appendValue(hs *handleState, v slog.Value, quote bool) {
@@ -319,7 +320,7 @@ func (h *Handler) appendValue(hs *handleState, v slog.Value, quote bool) {
 			hs.buf.AppendFloat64(v.Float64())
 		})
 	case slog.KindBool:
-		h.styleNumber.apply(hs, func() {
+		h.styleBool.apply(hs, func() {
 			hs.buf.AppendBool(v.Bool())
 		})
 	case slog.KindDuration:
@@ -582,38 +583,34 @@ type shared struct {
 
 func newThemeCache(theme *Theme) themeCache {
 	return themeCache{
-		keyStylePrefix:       theme.Key.Prefix,
-		keyStyleSuffix:       theme.Key.Suffix + theme.EqualSign.Prefix + "=" + theme.EqualSign.Suffix,
-		sourceStylePrefix:    theme.Source.Prefix,
-		sourceStyleSuffix:    theme.Source.Suffix + " ",
-		timestampStylePrefix: theme.Timestamp.Prefix,
-		timestampStyleSuffix: theme.Timestamp.Suffix + " ",
-		styleString:          newStyle(theme.String),
-		styleNumber:          newStyle(theme.Number),
-		styleBool:            newStyle(theme.Bool),
-		styleNull:            newStyle(theme.Null),
-		styleError:           newStyle(theme.Error),
-		styleDuration:        newStyle(theme.Duration),
-		styleTime:            newStyle(theme.Time),
-		styleMarshalError:    newStyle(theme.MarshalError),
+		styleSource:       newStyle(theme.Source).withExtraSuffix(" "),
+		styleTimestamp:    newStyle(theme.Timestamp).withExtraSuffix(" "),
+		styleKey:          newStyle(theme.Key).withExtraSuffix(theme.EqualSign.Prefix + "=" + theme.EqualSign.Suffix),
+		styleMessage:      newStyle(theme.Message).withExtraSuffix(" "),
+		styleString:       newStyle(theme.String),
+		styleNumber:       newStyle(theme.Number),
+		styleBool:         newStyle(theme.Bool),
+		styleNull:         newStyle(theme.Null),
+		styleError:        newStyle(theme.Error),
+		styleDuration:     newStyle(theme.Duration),
+		styleTime:         newStyle(theme.Time),
+		styleMarshalError: newStyle(theme.MarshalError),
 	}
 }
 
 type themeCache struct {
-	keyStylePrefix       string
-	keyStyleSuffix       string
-	sourceStylePrefix    string
-	sourceStyleSuffix    string
-	timestampStylePrefix string
-	timestampStyleSuffix string
-	styleString          style
-	styleNumber          style
-	styleBool            style
-	styleNull            style
-	styleError           style
-	styleDuration        style
-	styleTime            style
-	styleMarshalError    style
+	styleSource       style
+	styleTimestamp    style
+	styleKey          style
+	styleMessage      style
+	styleString       style
+	styleNumber       style
+	styleBool         style
+	styleNull         style
+	styleError        style
+	styleDuration     style
+	styleTime         style
+	styleMarshalError style
 }
 
 // ---
@@ -693,13 +690,28 @@ type style struct {
 	empty  bool
 }
 
-func (s style) apply(hs *handleState, appendValue func()) {
+func (s style) withExtraSuffix(suffix string) style {
+	s.suffix += suffix
+	s.empty = s.prefix == "" && suffix == ""
+
+	return s
+}
+
+func (s *style) open(hs *handleState) {
+	hs.buf.AppendString(s.prefix)
+}
+
+func (s *style) close(hs *handleState) {
+	hs.buf.AppendString(s.suffix)
+}
+
+func (s *style) apply(hs *handleState, appendValue func()) {
 	if s.empty {
 		appendValue()
 	} else {
-		hs.buf.AppendString(s.prefix)
+		s.open(hs)
 		appendValue()
-		hs.buf.AppendString(s.suffix)
+		s.close(hs)
 	}
 }
 

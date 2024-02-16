@@ -5,6 +5,33 @@ import "github.com/pamburus/slogx/internal/stripansi"
 // ThemeDefault returns a theme with default colors.
 func ThemeDefault() Theme {
 	level := [4]FixedThemeItem{
+		{Text: "\x1b[2m|\x1b[0;95mDBG\x1b[0;2m|\x1b[m"},
+		{Text: "\x1b[2m|\x1b[0;96mINF\x1b[0;2m|\x1b[m"},
+		{Text: "\x1b[2m|\x1b[0;93mWRN\x1b[0;2m|\x1b[m"},
+		{Text: "\x1b[2m|\x1b[0;91mERR\x1b[0;2m|\x1b[m"},
+	}
+
+	return Theme{
+		Timestamp:    VariableThemeItem{Prefix: "\x1b[2m", Suffix: "\x1b[m"},
+		Level:        level,
+		Message:      VariableThemeItem{Prefix: "\x1b[1m", Suffix: "\x1b[m"},
+		Key:          VariableThemeItem{Prefix: "\x1b[32m"},
+		EqualSign:    VariableThemeItem{Prefix: "\x1b[2m", Suffix: "\x1b[m"},
+		Source:       VariableThemeItem{Prefix: "\x1b[2;3m@ ", Suffix: "\x1b[m"},
+		String:       VariableThemeItem{},
+		Bool:         VariableThemeItem{Prefix: "\x1b[36m", Suffix: "\x1b[m"},
+		Number:       VariableThemeItem{Prefix: "\x1b[94m", Suffix: "\x1b[m"},
+		Null:         VariableThemeItem{Prefix: "\x1b[91m", Suffix: "\x1b[m"},
+		Error:        VariableThemeItem{Prefix: "\x1b[91m", Suffix: "\x1b[m"},
+		Duration:     VariableThemeItem{Prefix: "\x1b[94m", Suffix: "\x1b[m"},
+		Time:         VariableThemeItem{},
+		MarshalError: VariableThemeItem{Prefix: "\x1b[91;2m$!(ERROR: \x1b[22m", Suffix: "\x1b[2m)\x1b[m"},
+	}
+}
+
+// ThemeTint returns a theme with emulation of color scheme of [tint](https://github.com/lmittmann/tint) package.
+func ThemeTint() Theme {
+	level := [4]FixedThemeItem{
 		{Text: "DBG"},
 		{Text: "\x1b[92mINF\x1b[m"},
 		{Text: "\x1b[93mWRN\x1b[m"},

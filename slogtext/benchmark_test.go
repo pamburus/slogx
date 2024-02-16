@@ -120,11 +120,13 @@ func BenchmarkHandler(b *testing.B) {
 			return func(b *testing.B) {
 				b.Run("WithColor", test(
 					slogtext.NewHandler(io.Discard, append(options,
+						slogtext.WithTheme(slogtext.ThemeTint()),
 						slogtext.WithColor(slogtext.ColorAlways),
 					)...),
 				))
 				b.Run("WithoutColor", test(
 					slogtext.NewHandler(io.Discard, append(options,
+						slogtext.WithTheme(slogtext.ThemeTint()),
 						slogtext.WithColor(slogtext.ColorNever),
 					)...),
 				))
