@@ -29,6 +29,8 @@ func ThemeDefault() Theme {
 		Null:        VariableThemeItem{Prefix: "\x1b[31m", Suffix: "\x1b[m"},
 		Error:       VariableThemeItem{Prefix: "\x1b[31m", Suffix: "\x1b[m"},
 		Duration:    VariableThemeItem{Prefix: "\x1b[94m", Suffix: "\x1b[m"},
+		Array:       VariableThemeItem{Prefix: "\x1b[95m[\x1b[0m", Suffix: "\x1b[95m]\x1b[0m"},
+		ArraySep:    FixedThemeItem{Text: "\x1b[95m,\x1b[0m"},
 		EncodeError: VariableThemeItem{Prefix: "\x1b[31;2m$!(ERROR: \x1b[22m", Suffix: "\x1b[2m)\x1b[m"},
 		EncodePanic: VariableThemeItem{Prefix: "\x1b[31;2m$!(PANIC: \x1b[22m", Suffix: "\x1b[2m)\x1b[m"},
 	}
@@ -85,6 +87,8 @@ type Theme struct {
 	Error       VariableThemeItem
 	Duration    VariableThemeItem
 	Time        VariableThemeItem
+	ArraySep    FixedThemeItem
+	Array       VariableThemeItem
 	EncodeError VariableThemeItem
 	EncodePanic VariableThemeItem
 }
@@ -107,9 +111,26 @@ func (t Theme) Plain() Theme {
 		Error:       t.Error.Plain(),
 		Duration:    t.Duration.Plain(),
 		Time:        t.Time.Plain(),
+		Array:       t.Array.Plain(),
+		ArraySep:    t.ArraySep.Plain(),
 		EncodeError: t.EncodeError.Plain(),
 		EncodePanic: t.EncodePanic.Plain(),
 	}
+}
+
+// WithDefaults returns a theme with default values set instead of missing values.
+func (t Theme) WithDefaults() Theme {
+	if t.Array.Prefix == "" {
+		t.Array.Prefix = "["
+	}
+	if t.Array.Suffix == "" {
+		t.Array.Suffix = "]"
+	}
+	if t.ArraySep.Text == "" {
+		t.ArraySep.Text = ","
+	}
+
+	return t
 }
 
 // ---

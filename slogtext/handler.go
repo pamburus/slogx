@@ -9,6 +9,7 @@ import (
 	"io"
 	"log/slog"
 	"os"
+	"reflect"
 	"runtime"
 	"slices"
 	"sync"
@@ -37,6 +38,8 @@ func NewHandler(writer io.Writer, options ...Option) *Handler {
 	if opts.color == ColorNever {
 		opts.theme = opts.theme.Plain()
 	}
+
+	opts.theme = opts.theme.WithDefaults()
 
 	return &Handler{
 		shared: &shared{
@@ -355,11 +358,32 @@ func (h *Handler) appendValue(hs *handleState, v slog.Value, quote bool) {
 			h.appendSource(hs, *v)
 		case slog.Source:
 			h.appendSource(hs, v)
+		case []byte:
+			hs.buf.AppendString(h.styleString.prefix)
+			h.appendByteString(hs, v, quote)
+			hs.buf.AppendString(h.styleString.suffix)
 		default:
-			hs.scratch.Reset()
-			_, _ = fmt.Fprintf(&hs.scratch, "%+v", v)
-			h.appendByteString(hs, hs.scratch.Bytes(), quote)
+			h.appendAnyValue(hs, v, quote)
 		}
+	}
+}
+
+func (h *Handler) appendAnyValue(hs *handleState, v any, quote bool) {
+	rv := reflect.ValueOf(v)
+	switch rv.Kind() {
+	case reflect.Slice, reflect.Array:
+		h.styleArray.open(hs)
+		for i := 0; i < rv.Len(); i++ {
+			if i != 0 {
+				hs.buf.AppendString(h.theme.ArraySep.Text)
+			}
+			h.appendValue(hs, slog.AnyValue(rv.Index(i).Interface()), quote)
+		}
+		h.styleArray.close(hs)
+	default:
+		hs.scratch.Reset()
+		_, _ = fmt.Fprintf(&hs.scratch, "%+v", v)
+		h.appendByteString(hs, hs.scratch.Bytes(), quote)
 	}
 }
 
@@ -622,6 +646,7 @@ func newThemeCache(theme *Theme) themeCache {
 		styleError:       newStyle(theme.Error),
 		styleDuration:    newStyle(theme.Duration),
 		styleTime:        newStyle(theme.Time),
+		styleArray:       newStyle(theme.Array),
 		styleEncodeError: newStyle(theme.EncodeError),
 		styleEncodePanic: newStyle(theme.EncodePanic),
 	}
@@ -654,6 +679,7 @@ type themeCache struct {
 	styleTime          style
 	styleEncodeError   style
 	styleEncodePanic   style
+	styleArray         style
 	styledDoubleQuote  string
 	styledQuadQuote    string
 	styledQuotedNull   string
