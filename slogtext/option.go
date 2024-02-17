@@ -168,7 +168,7 @@ func defaultOptions() options {
 		encodeTimeValue:    timeLayout(time.StampMilli),
 		encodeDuration:     DurationAsSeconds(),
 		encodeSource:       SourceShort(),
-		expansionThreshold: 64,
+		expansionThreshold: 32,
 		theme:              themes.Default(),
 	}
 }
