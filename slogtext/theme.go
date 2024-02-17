@@ -6,15 +6,18 @@ import (
 	"github.com/pamburus/slogx/internal/stripansi"
 )
 
+// NumLevels is the number of levels.
+const NumLevels = 4
+
 // ThemeDefault returns a theme with default colors.
 func ThemeDefault() Theme {
-	level := [4]VariableThemeItem{
+	level := [NumLevels]VariableThemeItem{
 		{Prefix: "\x1b[2m|\x1b[0;35m", Suffix: "\x1b[0;2m|\x1b[m"},
 		{Prefix: "\x1b[2m|\x1b[0;36m", Suffix: "\x1b[0;2m|\x1b[m"},
 		{Prefix: "\x1b[2m|\x1b[0;93m", Suffix: "\x1b[0;2m|\x1b[m"},
 		{Prefix: "\x1b[2m|\x1b[0;91m", Suffix: "\x1b[0;2m|\x1b[m"},
 	}
-	levelValue := [4]VariableThemeItem{
+	levelValue := [NumLevels]VariableThemeItem{
 		{Prefix: "\x1b[35m", Suffix: "\x1b[m"},
 		{Prefix: "\x1b[36m", Suffix: "\x1b[m"},
 		{Prefix: "\x1b[93m", Suffix: "\x1b[m"},
@@ -36,8 +39,9 @@ func ThemeDefault() Theme {
 		Null:        VariableThemeItem{Prefix: "\x1b[31m", Suffix: "\x1b[m"},
 		Error:       VariableThemeItem{Prefix: "\x1b[31m", Suffix: "\x1b[m"},
 		Duration:    VariableThemeItem{Prefix: "\x1b[94m", Suffix: "\x1b[m"},
-		Array:       VariableThemeItem{Prefix: "\x1b[95m[\x1b[0m", Suffix: "\x1b[95m]\x1b[0m"},
-		ArraySep:    FixedThemeItem{Text: "\x1b[95m,\x1b[0m"},
+		ArrayBegin:  VariableThemeItem{Prefix: "\x1b[95m", Suffix: "\x1b[m"},
+		ArrayEnd:    VariableThemeItem{Prefix: "\x1b[95m", Suffix: "\x1b[m"},
+		ArraySep:    VariableThemeItem{Prefix: "\x1b[95m", Suffix: "\x1b[m"},
 		EncodeError: VariableThemeItem{Prefix: "\x1b[31;2m$!(ERROR: \x1b[22m", Suffix: "\x1b[2m)\x1b[m"},
 		EncodePanic: VariableThemeItem{Prefix: "\x1b[31;2m$!(PANIC: \x1b[22m", Suffix: "\x1b[2m)\x1b[m"},
 	}
@@ -63,7 +67,7 @@ func ThemeFancy() Theme {
 
 // ThemeTint returns a theme with emulation of color scheme of [tint](https://github.com/lmittmann/tint) package.
 func ThemeTint() Theme {
-	level := [4]VariableThemeItem{
+	level := [NumLevels]VariableThemeItem{
 		{},
 		{Prefix: "\x1b[32m", Suffix: "\x1b[m"},
 		{Prefix: "\x1b[93m", Suffix: "\x1b[m"},
@@ -87,8 +91,8 @@ func ThemeTint() Theme {
 // Theme is a theme for the Handler.
 type Theme struct {
 	Timestamp   VariableThemeItem
-	Level       [4]VariableThemeItem
-	LevelValue  [4]VariableThemeItem
+	Level       [NumLevels]VariableThemeItem
+	LevelValue  [NumLevels]VariableThemeItem
 	Message     VariableThemeItem
 	Key         VariableThemeItem
 	EqualSign   VariableThemeItem
@@ -102,8 +106,9 @@ type Theme struct {
 	Error       VariableThemeItem
 	Duration    VariableThemeItem
 	Time        VariableThemeItem
-	ArraySep    FixedThemeItem
-	Array       VariableThemeItem
+	ArrayBegin  VariableThemeItem
+	ArrayEnd    VariableThemeItem
+	ArraySep    VariableThemeItem
 	EncodeError VariableThemeItem
 	EncodePanic VariableThemeItem
 }
@@ -112,7 +117,7 @@ type Theme struct {
 func (t Theme) Plain() Theme {
 	return Theme{
 		Timestamp:   t.Timestamp.Plain(),
-		Level:       [4]VariableThemeItem{t.Level[0].Plain(), t.Level[1].Plain(), t.Level[2].Plain(), t.Level[3].Plain()},
+		Level:       [NumLevels]VariableThemeItem{t.Level[0].Plain(), t.Level[1].Plain(), t.Level[2].Plain(), t.Level[3].Plain()},
 		Message:     t.Message.Plain(),
 		Key:         t.Key.Plain(),
 		EqualSign:   t.EqualSign.Plain(),
@@ -126,26 +131,12 @@ func (t Theme) Plain() Theme {
 		Error:       t.Error.Plain(),
 		Duration:    t.Duration.Plain(),
 		Time:        t.Time.Plain(),
-		Array:       t.Array.Plain(),
+		ArrayBegin:  t.ArrayBegin.Plain(),
+		ArrayEnd:    t.ArrayEnd.Plain(),
 		ArraySep:    t.ArraySep.Plain(),
 		EncodeError: t.EncodeError.Plain(),
 		EncodePanic: t.EncodePanic.Plain(),
 	}
-}
-
-// WithDefaults returns a theme with default values set instead of missing values.
-func (t Theme) WithDefaults() Theme {
-	if t.Array.Prefix == "" {
-		t.Array.Prefix = "["
-	}
-	if t.Array.Suffix == "" {
-		t.Array.Suffix = "]"
-	}
-	if t.ArraySep.Text == "" {
-		t.ArraySep.Text = ","
-	}
-
-	return t
 }
 
 // ---
