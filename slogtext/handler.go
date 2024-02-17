@@ -326,6 +326,22 @@ func (h *Handler) appendValue(hs *handleState, v slog.Value, quote bool) {
 		h.tc.Duration.apply(hs, func() {
 			h.appendDuration(hs, v.Duration(), quote)
 		})
+	case slog.KindGroup:
+		attrs := v.Group()
+		if len(attrs) == 0 {
+			hs.buf.AppendString(h.tc.EmptyMap)
+		} else {
+			hs.buf.AppendString(h.tc.Map.prefix)
+			for i, attr := range attrs {
+				if i != 0 {
+					hs.buf.AppendString(h.tc.MapSep1)
+				}
+				h.appendString(hs, attr.Key, quote)
+				hs.buf.AppendString(h.tc.MapSep2)
+				h.appendValue(hs, attr.Value, true)
+			}
+			hs.buf.AppendString(h.tc.Map.suffix)
+		}
 	case slog.KindTime:
 		h.tc.Time.apply(hs, func() {
 			h.appendTime(hs, v.Time(), quote)
