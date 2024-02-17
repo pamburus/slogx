@@ -83,7 +83,7 @@ func (h *Handler) Handle(ctx context.Context, record slog.Record) error {
 
 	if !record.Time.IsZero() {
 		val := record.Time.Round(0)
-		h.tc.timestamp.open(hs)
+		h.tc.Timestamp.open(hs)
 		if replace == nil {
 			h.appendTimestamp(hs, record.Time)
 		} else if attr := replace(nil, slog.Time(slog.TimeKey, val)); attr.Key != "" {
@@ -93,18 +93,18 @@ func (h *Handler) Handle(ctx context.Context, record slog.Record) error {
 				h.appendValue(hs, attr.Value, false)
 			}
 		}
-		h.tc.timestamp.close(hs)
+		h.tc.Timestamp.close(hs)
 	}
 
 	h.appendLevel(hs, record.Level)
 
-	h.tc.message.open(hs)
+	h.tc.Message.open(hs)
 	if replace == nil {
 		hs.buf.AppendString(record.Message)
 	} else if a := replace(nil, slog.String(slog.MessageKey, record.Message)); a.Key != "" {
 		h.appendValue(hs, a.Value, false)
 	}
-	h.tc.message.close(hs)
+	h.tc.Message.close(hs)
 
 	h.appendHandlerAttrs(hs)
 
@@ -117,13 +117,13 @@ func (h *Handler) Handle(ctx context.Context, record slog.Record) error {
 	if h.includeSource {
 		src := h.source(record.PC)
 		if src.File != "" {
-			h.tc.source.open(hs)
+			h.tc.Source.open(hs)
 			if replace == nil {
 				h.appendSource(hs, src)
 			} else if attr := replace(nil, slog.Any(slog.SourceKey, src)); attr.Key != "" {
 				h.appendValue(hs, attr.Value, false)
 			}
-			h.tc.source.close(hs)
+			h.tc.Source.close(hs)
 		}
 	}
 
@@ -289,55 +289,55 @@ func (h *Handler) appendAttr(hs *handleState, attr slog.Attr, basePrefixLen int)
 }
 
 func (h *Handler) appendKey(hs *handleState, key string, basePrefixLen int) {
-	hs.buf.AppendString(h.tc.key.prefix)
+	hs.buf.AppendString(h.tc.Key.prefix)
 	hs.buf.AppendString(h.keyPrefix[:basePrefixLen])
 	hs.buf.AppendBytes(hs.keyPrefix)
 	hs.buf.AppendString(key)
-	hs.buf.AppendString(h.tc.key.suffix)
+	hs.buf.AppendString(h.tc.Key.suffix)
 }
 
 func (h *Handler) appendValue(hs *handleState, v slog.Value, quote bool) {
 	switch v.Kind() {
 	case slog.KindString:
-		if h.tc.string.empty {
+		if h.tc.String.empty {
 			h.appendString(hs, v.String(), quote)
 		} else {
-			hs.buf.AppendString(h.tc.string.prefix)
+			hs.buf.AppendString(h.tc.String.prefix)
 			h.appendString(hs, v.String(), quote)
-			hs.buf.AppendString(h.tc.string.suffix)
+			hs.buf.AppendString(h.tc.String.suffix)
 		}
 	case slog.KindInt64:
-		h.tc.number.apply(hs, func() {
+		h.tc.Number.apply(hs, func() {
 			hs.buf.AppendInt(v.Int64())
 		})
 	case slog.KindUint64:
-		h.tc.number.apply(hs, func() {
+		h.tc.Number.apply(hs, func() {
 			hs.buf.AppendUint(v.Uint64())
 		})
 	case slog.KindFloat64:
-		h.tc.number.apply(hs, func() {
+		h.tc.Number.apply(hs, func() {
 			hs.buf.AppendFloat64(v.Float64())
 		})
 	case slog.KindBool:
-		h.tc.bool.apply(hs, func() {
+		h.tc.Bool.apply(hs, func() {
 			hs.buf.AppendBool(v.Bool())
 		})
 	case slog.KindDuration:
-		h.tc.duration.apply(hs, func() {
+		h.tc.Duration.apply(hs, func() {
 			h.appendDuration(hs, v.Duration(), quote)
 		})
 	case slog.KindTime:
-		h.tc.time.apply(hs, func() {
+		h.tc.Time.apply(hs, func() {
 			h.appendTime(hs, v.Time(), quote)
 		})
 	case slog.KindAny:
 		switch v := v.Any().(type) {
 		case nil:
-			hs.buf.AppendString(h.tc.null)
+			hs.buf.AppendString(h.tc.Null)
 		case slog.Level:
 			h.appendLevelValue(hs, v)
 		case error:
-			h.tc.error.apply(hs, func() {
+			h.tc.Error.apply(hs, func() {
 				h.appendString(hs, v.Error(), quote)
 			})
 		case fmt.Stringer:
@@ -365,17 +365,17 @@ func (h *Handler) appendBytesValue(hs *handleState, v []byte, quote bool) {
 	default:
 		fallthrough
 	case BytesFormatString:
-		hs.buf.AppendString(h.tc.string.prefix)
+		hs.buf.AppendString(h.tc.String.prefix)
 		h.appendByteString(hs, v, quote)
-		hs.buf.AppendString(h.tc.string.suffix)
+		hs.buf.AppendString(h.tc.String.suffix)
 	case BytesFormatHex:
-		hs.buf.AppendString(h.tc.quotedString.prefix)
+		hs.buf.AppendString(h.tc.QuotedString.prefix)
 		hex.Encode(hs.buf.Extend(hex.EncodedLen(len(v))), v)
-		hs.buf.AppendString(h.tc.quotedString.suffix)
+		hs.buf.AppendString(h.tc.QuotedString.suffix)
 	case BytesFormatBase64:
-		hs.buf.AppendString(h.tc.quotedString.prefix)
+		hs.buf.AppendString(h.tc.QuotedString.prefix)
 		base64.StdEncoding.Encode(hs.buf.Extend(base64.StdEncoding.EncodedLen(len(v))), v)
-		hs.buf.AppendString(h.tc.quotedString.suffix)
+		hs.buf.AppendString(h.tc.QuotedString.suffix)
 	}
 }
 
@@ -385,18 +385,36 @@ func (h *Handler) appendAnyValue(hs *handleState, v any, quote bool) {
 	case reflect.Slice, reflect.Array:
 		switch {
 		case rv.IsNil():
-			hs.buf.AppendString(h.tc.null)
+			hs.buf.AppendString(h.tc.Null)
 		case rv.Len() == 0:
-			hs.buf.AppendString(h.tc.emptyArray)
+			hs.buf.AppendString(h.tc.EmptyArray)
 		default:
-			hs.buf.AppendString(h.tc.array.prefix)
+			hs.buf.AppendString(h.tc.Array.prefix)
 			for i := 0; i < rv.Len(); i++ {
 				if i != 0 {
-					hs.buf.AppendString(h.tc.arraySep)
+					hs.buf.AppendString(h.tc.ArraySep)
 				}
 				h.appendValue(hs, slog.AnyValue(rv.Index(i).Interface()), quote)
 			}
-			hs.buf.AppendString(h.tc.array.suffix)
+			hs.buf.AppendString(h.tc.Array.suffix)
+		}
+	case reflect.Map:
+		switch {
+		case rv.IsNil():
+			hs.buf.AppendString(h.tc.Null)
+		case rv.Len() == 0:
+			hs.buf.AppendString(h.tc.EmptyMap)
+		default:
+			hs.buf.AppendString(h.tc.Map.prefix)
+			for i, k := range rv.MapKeys() {
+				if i != 0 {
+					hs.buf.AppendString(h.tc.MapSep1)
+				}
+				h.appendValue(hs, slog.AnyValue(k.Interface()), true)
+				hs.buf.AppendString(h.tc.MapSep2)
+				h.appendValue(hs, slog.AnyValue(rv.MapIndex(k).Interface()), true)
+			}
+			hs.buf.AppendString(h.tc.Map.suffix)
 		}
 	default:
 		hs.scratch.Reset()
@@ -408,7 +426,7 @@ func (h *Handler) appendAnyValue(hs *handleState, v any, quote bool) {
 func (h *Handler) appendString(hs *handleState, s string, quote bool) {
 	if quote {
 		if s == "null" {
-			hs.buf.AppendString(h.tc.quotedNull)
+			hs.buf.AppendString(h.tc.QuotedNull)
 		} else {
 			h.appendAutoQuotedString(hs, s)
 		}
@@ -420,7 +438,7 @@ func (h *Handler) appendString(hs *handleState, s string, quote bool) {
 func (h *Handler) appendByteString(hs *handleState, s []byte, quote bool) {
 	if quote {
 		if bytes.Equal(s, []byte("null")) {
-			hs.buf.AppendString(h.tc.quotedNull)
+			hs.buf.AppendString(h.tc.QuotedNull)
 		} else {
 			h.appendAutoQuotedByteString(hs, s)
 		}
@@ -432,7 +450,7 @@ func (h *Handler) appendByteString(hs *handleState, s []byte, quote bool) {
 func (h *Handler) appendAutoQuotedString(hs *handleState, v string) {
 	switch {
 	case len(v) == 0:
-		hs.buf.AppendString(h.tc.quadQuote)
+		hs.buf.AppendString(h.tc.QuadQuote)
 	case quoting.IsNeeded(v):
 		h.appendQuotedString(hs, v)
 	default:
@@ -441,15 +459,15 @@ func (h *Handler) appendAutoQuotedString(hs *handleState, v string) {
 }
 
 func (h *Handler) appendQuotedString(hs *handleState, v string) {
-	hs.buf.AppendString(h.tc.doubleQuote)
+	hs.buf.AppendString(h.tc.DoubleQuote)
 	h.appendEscapedString(hs, v)
-	hs.buf.AppendString(h.tc.doubleQuote)
+	hs.buf.AppendString(h.tc.DoubleQuote)
 }
 
 func (h *Handler) appendAutoQuotedByteString(hs *handleState, v []byte) {
 	switch {
 	case len(v) == 0:
-		hs.buf.AppendString(h.tc.quadQuote)
+		hs.buf.AppendString(h.tc.QuadQuote)
 	case quoting.IsNeededForBytes(v):
 		h.appendQuotedByteString(hs, v)
 	default:
@@ -458,9 +476,9 @@ func (h *Handler) appendAutoQuotedByteString(hs *handleState, v []byte) {
 }
 
 func (h *Handler) appendQuotedByteString(hs *handleState, v []byte) {
-	hs.buf.AppendString(h.tc.doubleQuote)
+	hs.buf.AppendString(h.tc.DoubleQuote)
 	h.appendEscapedByteString(hs, v)
-	hs.buf.AppendString(h.tc.doubleQuote)
+	hs.buf.AppendString(h.tc.DoubleQuote)
 }
 
 func (h *Handler) appendEscapedString(hs *handleState, s string) {
@@ -476,15 +494,15 @@ func (h *Handler) appendEscapedString(hs *handleState, s string) {
 			hs.buf.AppendString(s[p:i])
 			switch c {
 			case '\t':
-				hs.buf.AppendString(h.tc.escTab)
+				hs.buf.AppendString(h.tc.EscTab)
 			case '\r':
-				hs.buf.AppendString(h.tc.escCR)
+				hs.buf.AppendString(h.tc.EscCR)
 			case '\n':
-				hs.buf.AppendString(h.tc.escLF)
+				hs.buf.AppendString(h.tc.EscLF)
 			case '\\':
-				hs.buf.AppendString(h.tc.escBackslash)
+				hs.buf.AppendString(h.tc.EscBackslash)
 			case '"':
-				hs.buf.AppendString(h.tc.escQuote)
+				hs.buf.AppendString(h.tc.EscQuote)
 			default:
 				hs.buf.AppendString(h.theme.Escape.Prefix)
 				hs.buf.AppendString(`\u00`)
@@ -526,15 +544,15 @@ func (h *Handler) appendEscapedByteString(hs *handleState, s []byte) {
 			hs.buf.AppendBytes(s[p:i])
 			switch c {
 			case '\t':
-				hs.buf.AppendString(h.tc.escTab)
+				hs.buf.AppendString(h.tc.EscTab)
 			case '\r':
-				hs.buf.AppendString(h.tc.escCR)
+				hs.buf.AppendString(h.tc.EscCR)
 			case '\n':
-				hs.buf.AppendString(h.tc.escLF)
+				hs.buf.AppendString(h.tc.EscLF)
 			case '\\':
-				hs.buf.AppendString(h.tc.escBackslash)
+				hs.buf.AppendString(h.tc.EscBackslash)
 			case '"':
-				hs.buf.AppendString(h.tc.escQuote)
+				hs.buf.AppendString(h.tc.EscQuote)
 			default:
 				hs.buf.AppendString(h.theme.Escape.Prefix)
 				hs.buf.AppendString(`\u00`)
@@ -571,7 +589,7 @@ func (h *Handler) appendLevel(hs *handleState, level slog.Level) {
 	if h.levelOffset {
 		h.appendLevelWithOffset(hs, level)
 	} else {
-		hs.buf.AppendString(h.tc.levelLabel[levelIndex(level)])
+		hs.buf.AppendString(h.tc.LevelLabel[levelIndex(level)])
 	}
 }
 
@@ -593,7 +611,7 @@ func (h *Handler) appendLevelWithOffset(hs *handleState, level slog.Level) {
 	}
 
 	i := levelIndex(level)
-	hs.buf.AppendString(h.tc.level[i].prefix)
+	hs.buf.AppendString(h.tc.Level[i].prefix)
 	offset := int64(level - levels[i])
 	if offset != 0 {
 		hs.buf.AppendString(levelLabels[i][:1])
@@ -601,7 +619,7 @@ func (h *Handler) appendLevelWithOffset(hs *handleState, level slog.Level) {
 	} else {
 		hs.buf.AppendString(levelLabels[i])
 	}
-	hs.buf.AppendString(h.tc.level[i].suffix)
+	hs.buf.AppendString(h.tc.Level[i].suffix)
 }
 
 func (h *Handler) appendLevelValue(hs *handleState, level slog.Level) {
@@ -633,7 +651,7 @@ func (h *Handler) source(pc uintptr) slog.Source {
 }
 
 func (h *Handler) appendEncodeError(hs *handleState, err error) {
-	h.tc.evalError.apply(hs, func() {
+	h.tc.EvalError.apply(hs, func() {
 		h.appendQuotedString(hs, err.Error())
 	})
 }
@@ -642,7 +660,7 @@ func (h *Handler) appendEncodePanic(hs *handleState, p any) {
 	hs.scratch.Reset()
 	_, _ = fmt.Fprintf(&hs.scratch, "%v", p)
 
-	h.tc.evalPanic.apply(hs, func() {
+	h.tc.EvalPanic.apply(hs, func() {
 		h.appendQuotedByteString(hs, hs.scratch)
 	})
 }
@@ -660,51 +678,53 @@ type shared struct {
 
 func newStyleCache(theme *Theme) styleCache {
 	sc := styleCache{
-		source:    styleFromTheme(theme.Source).withTrailingSpace(),
-		timestamp: styleFromTheme(theme.Timestamp).withTrailingSpace(),
-		key:       styleFromTheme(theme.Key).withExtraSuffix(theme.EqualSign.Prefix + "=" + theme.EqualSign.Suffix),
-		message:   styleFromTheme(theme.Message).withTrailingSpace(),
-		string:    styleFromTheme(theme.String),
-		quote:     styleFromTheme(theme.Quote),
-		escape:    styleFromTheme(theme.Escape),
-		number:    styleFromTheme(theme.Number),
-		bool:      styleFromTheme(theme.Bool),
-		error:     styleFromTheme(theme.Error),
-		duration:  styleFromTheme(theme.Duration),
-		time:      styleFromTheme(theme.Time),
-		evalError: styleFromTheme(theme.EncodeError),
-		evalPanic: styleFromTheme(theme.EncodePanic),
-		array:     newStyle(styleFromTheme(theme.ArrayBegin).render("["), styleFromTheme(theme.ArrayEnd).render("]")),
+		Source:    styleFromTheme(theme.Source).withTrailingSpace(),
+		Timestamp: styleFromTheme(theme.Timestamp).withTrailingSpace(),
+		Key:       styleFromTheme(theme.Key).withExtraSuffix(theme.EqualSign.Prefix + "=" + theme.EqualSign.Suffix),
+		Message:   styleFromTheme(theme.Message).withTrailingSpace(),
+		String:    styleFromTheme(theme.String),
+		Quote:     styleFromTheme(theme.Quote),
+		Escape:    styleFromTheme(theme.Escape),
+		Number:    styleFromTheme(theme.Number),
+		Bool:      styleFromTheme(theme.Bool),
+		Error:     styleFromTheme(theme.Error),
+		Duration:  styleFromTheme(theme.Duration),
+		Time:      styleFromTheme(theme.Time),
+		EvalError: styleFromTheme(theme.EvalError),
+		EvalPanic: styleFromTheme(theme.EvalPanic),
+		Array:     newStyle(styleFromTheme(theme.Array.Begin).render("["), styleFromTheme(theme.Array.End).render("]")),
+		Map:       newStyle(styleFromTheme(theme.Map.Begin).render("{"), styleFromTheme(theme.Map.End).render("}")),
 	}
 
-	quote := sc.quote.render(`"`)
-	sc.quotedString.set(sc.string.prefix+quote, quote+sc.string.suffix)
+	quote := sc.Quote.render(`"`)
+	sc.QuotedString.set(sc.String.prefix+quote, quote+sc.String.suffix)
 
 	for i := 0; i < NumLevels; i++ {
-		sc.level[i] = styleFromTheme(theme.Level[i]).withTrailingSpace()
+		sc.Level[i] = styleFromTheme(theme.Level[i]).withTrailingSpace()
 	}
 
 	return sc
 }
 
 type styleCache struct {
-	source       style
-	timestamp    style
-	key          style
-	message      style
-	string       style
-	quotedString style
-	quote        style
-	escape       style
-	number       style
-	bool         style
-	error        style
-	duration     style
-	time         style
-	evalError    style
-	evalPanic    style
-	array        style
-	level        [4]style
+	Source       style
+	Timestamp    style
+	Key          style
+	Message      style
+	String       style
+	QuotedString style
+	Quote        style
+	Escape       style
+	Number       style
+	Bool         style
+	Error        style
+	Duration     style
+	Time         style
+	EvalError    style
+	EvalPanic    style
+	Array        style
+	Map          style
+	Level        [4]style
 }
 
 // ---
@@ -715,19 +735,22 @@ func newThemeCache(theme *Theme) themeCache {
 		styleCache: sc,
 	}
 
-	tc.doubleQuote = tc.quote.render(`"`)
-	tc.quadQuote = tc.quote.render(`""`)
-	tc.quotedNull = tc.quotedString.render("null")
-	tc.escTab = tc.escape.render(`\t`)
-	tc.escCR = tc.escape.render(`\r`)
-	tc.escLF = tc.escape.render(`\n`)
-	tc.escBackslash = tc.escape.render(`\`) + `\`
-	tc.escQuote = tc.escape.render(`\`) + `"`
-	tc.arraySep = styleFromTheme(theme.ArraySep).render(",")
-	tc.emptyArray = strings.TrimSpace(sc.array.prefix) + strings.TrimSpace(sc.array.suffix)
-	tc.null = styleFromTheme(theme.Null).render("null")
+	tc.DoubleQuote = tc.Quote.render(`"`)
+	tc.QuadQuote = tc.Quote.render(`""`)
+	tc.QuotedNull = tc.QuotedString.render("null")
+	tc.EscTab = tc.Escape.render(`\t`)
+	tc.EscCR = tc.Escape.render(`\r`)
+	tc.EscLF = tc.Escape.render(`\n`)
+	tc.EscBackslash = tc.Escape.render(`\`) + `\`
+	tc.EscQuote = tc.Escape.render(`\`) + `"`
+	tc.ArraySep = styleFromTheme(theme.Array.Sep1).render(",")
+	tc.MapSep1 = styleFromTheme(theme.Map.Sep1).render(",")
+	tc.MapSep2 = styleFromTheme(theme.Map.Sep2).render(":")
+	tc.EmptyArray = strings.TrimSpace(sc.Array.prefix) + strings.TrimSpace(sc.Array.suffix)
+	tc.EmptyMap = strings.TrimSpace(sc.Map.prefix) + strings.TrimSpace(sc.Map.suffix)
+	tc.Null = styleFromTheme(theme.Null).render("null")
 	for i := 0; i < 4; i++ {
-		tc.levelLabel[i] = styleFromTheme(theme.Level[i]).withTrailingSpace().render(levelLabels[i])
+		tc.LevelLabel[i] = styleFromTheme(theme.Level[i]).withTrailingSpace().render(levelLabels[i])
 	}
 
 	return tc
@@ -735,18 +758,21 @@ func newThemeCache(theme *Theme) themeCache {
 
 type themeCache struct {
 	styleCache
-	doubleQuote  string
-	quadQuote    string
-	quotedNull   string
-	escTab       string
-	escCR        string
-	escLF        string
-	escBackslash string
-	escQuote     string
-	levelLabel   [NumLevels]string
-	emptyArray   string
-	arraySep     string
-	null         string
+	DoubleQuote  string
+	QuadQuote    string
+	QuotedNull   string
+	EscTab       string
+	EscCR        string
+	EscLF        string
+	EscBackslash string
+	EscQuote     string
+	LevelLabel   [NumLevels]string
+	EmptyArray   string
+	ArraySep     string
+	EmptyMap     string
+	MapSep1      string
+	MapSep2      string
+	Null         string
 }
 
 // ---
@@ -820,7 +846,7 @@ func newStyle(prefix, suffix string) style {
 	return style{prefix, suffix, prefix == "" && suffix == ""}
 }
 
-func styleFromTheme(item VariableThemeItem) style {
+func styleFromTheme(item ThemeItem) style {
 	return style{item.Prefix, item.Suffix, item.IsEmpty()}
 }
 
