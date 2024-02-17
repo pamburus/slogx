@@ -29,6 +29,10 @@ func Tint() Theme {
 		Key: Item{
 			Prefix: "\x1b[2m",
 		},
+		ExpandedKey: Item{
+			Prefix: "> \x1b[2m",
+			Suffix: "\x1b[m",
+		},
 		KeyValueSep: Item{
 			Suffix: "\x1b[m",
 		},

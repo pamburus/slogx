@@ -13,8 +13,8 @@ func New(theme *Theme, cfg *Config) *StyleCache {
 		Config:         *cfg,
 		Time:           st(theme.Time).ws(),
 		Message:        sst(theme.Message).ws(),
-		Key:            st(theme.Key),
-		KeyValueSep:    st(theme.KeyValueSep).render(cfg.KeyValueSep),
+		Key:            st(theme.Key).append(st(theme.KeyValueSep).render(cfg.KeyValueSep)),
+		ExpandedKey:    st(theme.ExpandedKey),
 		Source:         st(theme.Source),
 		StringValue:    sst(theme.StringValue),
 		NumberValue:    st(theme.NumberValue),
@@ -51,7 +51,7 @@ type StyleCache struct {
 	LevelLabel     [NumLevels]string
 	Message        StringStyle
 	Key            Style
-	KeyValueSep    string
+	ExpandedKey    Style
 	Source         Style
 	StringValue    StringStyle
 	NumberValue    Style

@@ -70,6 +70,10 @@ func Default() Theme {
 			Prefix: "\x1b[2m",
 			Suffix: "\x1b[m",
 		},
+		ExpandedKey: Item{
+			Prefix: "> \x1b[32m",
+			Suffix: "\x1b[m",
+		},
 		Source: Item{
 			Prefix: "\x1b[2;3m@ ",
 			Suffix: "\x1b[m",

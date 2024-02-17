@@ -146,12 +146,11 @@ func (h *Handler) Handle(ctx context.Context, record slog.Record) error {
 		for _, attr := range hs.attrsToExpand {
 			hs.buf.AppendByte('\n')
 			hs.buf.AppendBytes(hs.buf[:hs.messageBegin])
-			hs.buf.AppendString(h.stc.Key.Prefix)
+			hs.buf.AppendString(h.stc.ExpandedKey.Prefix)
 			hs.buf.AppendString(h.keyPrefix)
 			hs.buf.AppendString(attr.KeyPrefix)
 			hs.buf.AppendString(attr.Key)
-			hs.buf.AppendString(h.stc.MapKeyValueSep)
-			hs.buf.AppendString(h.stc.Key.Suffix)
+			hs.buf.AppendString(h.stc.ExpandedKey.Suffix)
 			hs.buf.AppendByte('\n')
 			h.appendValue(hs, attr.Value, false, false)
 		}
@@ -313,7 +312,6 @@ func (h *Handler) appendAttr(hs *handleState, attr slog.Attr, basePrefixLen int)
 		}
 	} else {
 		h.appendKey(hs, attr.Key, basePrefixLen)
-		hs.buf.AppendString(h.stc.KeyValueSep)
 		if !h.appendValue(hs, attr.Value, true, !hs.expandingAttrs) {
 			hs.addAttrToExpand(attr)
 		}

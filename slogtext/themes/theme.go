@@ -15,6 +15,7 @@ type Theme struct {
 	Message       StringItem
 	Key           Item
 	KeyValueSep   Item
+	ExpandedKey   Item
 	Source        Item
 	TimeValue     Item
 	LevelValue    LevelItem
@@ -37,6 +38,7 @@ func (t Theme) Plain() Theme {
 		Message:       t.Message.Plain(),
 		Key:           t.Key.Plain(),
 		KeyValueSep:   t.KeyValueSep.Plain(),
+		ExpandedKey:   t.ExpandedKey.Plain(),
 		Source:        t.Source.Plain(),
 		TimeValue:     t.TimeValue.Plain(),
 		LevelValue:    t.LevelValue.Plain(),
