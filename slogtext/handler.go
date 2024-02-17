@@ -98,7 +98,6 @@ func (h *Handler) Handle(ctx context.Context, record slog.Record) error {
 	}
 
 	h.appendLevel(hs, record.Level)
-	hs.buf.AppendByte(' ')
 
 	h.styleMessage.open(hs)
 	if replace == nil {
@@ -565,18 +564,10 @@ func (h *Handler) appendSource(hs *handleState, source slog.Source) {
 }
 
 func (h *Handler) appendLevel(hs *handleState, level slog.Level) {
-	i := min(max(0, (level+4)/4), 3)
-	hs.buf.AppendString(h.theme.Level[i].Text)
+	hs.buf.AppendString(h.styledLevel[levelIndex(level)])
 }
 
 func (h *Handler) appendLevelValue(hs *handleState, level slog.Level) {
-	const (
-		textDebug = "DEBUG"
-		textInfo  = "INFO"
-		textWarn  = "WARN"
-		textError = "ERROR"
-	)
-
 	appendOffset := func(offset int64) {
 		if offset != 0 {
 			if offset > 0 {
@@ -586,20 +577,11 @@ func (h *Handler) appendLevelValue(hs *handleState, level slog.Level) {
 		}
 	}
 
-	switch {
-	case level < slog.LevelInfo:
-		hs.buf.AppendString(textDebug)
-		appendOffset(int64(level - slog.LevelDebug))
-	case level < slog.LevelWarn:
-		hs.buf.AppendString(textInfo)
-		appendOffset(int64(level - slog.LevelInfo))
-	case level < slog.LevelError:
-		hs.buf.AppendString(textWarn)
-		appendOffset(int64(level - slog.LevelWarn))
-	default:
-		hs.buf.AppendString(textError)
-		appendOffset(int64(level - slog.LevelError))
-	}
+	i := levelIndex(level)
+	hs.buf.AppendString(h.theme.LevelValue[i].Prefix)
+	hs.buf.AppendString(levelNames[i])
+	appendOffset(int64(level - levels[i]))
+	hs.buf.AppendString(h.theme.LevelValue[i].Suffix)
 }
 
 func (h *Handler) source(pc uintptr) slog.Source {
@@ -642,10 +624,10 @@ type shared struct {
 
 func newThemeCache(theme *Theme) themeCache {
 	tc := themeCache{
-		styleSource:      newStyle(theme.Source).withExtraSuffix(" "),
-		styleTimestamp:   newStyle(theme.Timestamp).withExtraSuffix(" "),
+		styleSource:      newStyle(theme.Source).withTrailingSpace(),
+		styleTimestamp:   newStyle(theme.Timestamp).withTrailingSpace(),
 		styleKey:         newStyle(theme.Key).withExtraSuffix(theme.EqualSign.Prefix + "=" + theme.EqualSign.Suffix),
-		styleMessage:     newStyle(theme.Message).withExtraSuffix(" "),
+		styleMessage:     newStyle(theme.Message).withTrailingSpace(),
 		styleString:      newStyle(theme.String),
 		styleQuote:       newStyle(theme.Quote),
 		styleEscape:      newStyle(theme.Escape),
@@ -668,9 +650,10 @@ func newThemeCache(theme *Theme) themeCache {
 	tc.styledEscLF = tc.styleEscape.prefix + `\n` + tc.styleEscape.suffix
 	tc.styledEscBackslash = tc.styleEscape.prefix + `\` + tc.styleEscape.suffix + `\`
 	tc.styledEscQuote = tc.styleEscape.prefix + `\` + tc.styleEscape.suffix + `"`
-	tc.styleQuotedString.prefix = tc.styleString.prefix + tc.styledDoubleQuote
-	tc.styleQuotedString.suffix = tc.styledDoubleQuote + tc.styleString.suffix
-	tc.styleQuotedString.empty = tc.styleQuotedString.prefix == "" && tc.styleQuotedString.suffix == ""
+	tc.styleQuotedString.set(tc.styleString.prefix+tc.styledDoubleQuote, tc.styledDoubleQuote+tc.styleString.suffix)
+	for i := 0; i < 4; i++ {
+		tc.styledLevel[i] = newStyle(theme.Level[i]).withTrailingSpace().render(levelLabels[i])
+	}
 
 	return tc
 }
@@ -701,6 +684,7 @@ type themeCache struct {
 	styledEscLF        string
 	styledEscBackslash string
 	styledEscQuote     string
+	styledLevel        [4]string
 }
 
 // ---
@@ -780,9 +764,18 @@ type style struct {
 	empty  bool
 }
 
+func (s *style) set(prefix, suffix string) {
+	s.prefix = prefix
+	s.suffix = suffix
+	s.empty = prefix == "" && suffix == ""
+}
+
+func (s style) withTrailingSpace() style {
+	return s.withExtraSuffix(" ")
+}
+
 func (s style) withExtraSuffix(suffix string) style {
-	s.suffix += suffix
-	s.empty = s.prefix == "" && suffix == ""
+	s.set(s.prefix, s.suffix+suffix)
 
 	return s
 }
@@ -803,6 +796,10 @@ func (s *style) apply(hs *handleState, appendValue func()) {
 		appendValue()
 		s.close(hs)
 	}
+}
+
+func (s style) render(inner string) string {
+	return s.prefix + inner + s.suffix
 }
 
 // ---
@@ -846,6 +843,16 @@ type cache struct {
 	numGroups int
 	numAttrs  int
 	once      sync.Once
+}
+
+// ---
+
+var levelLabels = [4]string{"DBG", "INF", "WRN", "ERR"}
+var levelNames = [4]string{"DEBUG", "INFO", "WARN", "ERROR"}
+var levels = [4]slog.Level{slog.LevelDebug, slog.LevelInfo, slog.LevelWarn, slog.LevelError}
+
+func levelIndex(level slog.Level) int {
+	return min(max(0, (int(level)+4)/4), 3)
 }
 
 // ---

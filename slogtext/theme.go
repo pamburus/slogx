@@ -8,16 +8,23 @@ import (
 
 // ThemeDefault returns a theme with default colors.
 func ThemeDefault() Theme {
-	level := [4]FixedThemeItem{
-		{Text: "\x1b[2m|\x1b[0;35mDBG\x1b[0;2m|\x1b[m"},
-		{Text: "\x1b[2m|\x1b[0;36mINF\x1b[0;2m|\x1b[m"},
-		{Text: "\x1b[2m|\x1b[0;93mWRN\x1b[0;2m|\x1b[m"},
-		{Text: "\x1b[2m|\x1b[0;91mERR\x1b[0;2m|\x1b[m"},
+	level := [4]VariableThemeItem{
+		{Prefix: "\x1b[2m|\x1b[0;35m", Suffix: "\x1b[0;2m|\x1b[m"},
+		{Prefix: "\x1b[2m|\x1b[0;36m", Suffix: "\x1b[0;2m|\x1b[m"},
+		{Prefix: "\x1b[2m|\x1b[0;93m", Suffix: "\x1b[0;2m|\x1b[m"},
+		{Prefix: "\x1b[2m|\x1b[0;91m", Suffix: "\x1b[0;2m|\x1b[m"},
+	}
+	levelValue := [4]VariableThemeItem{
+		{Prefix: "\x1b[35m", Suffix: "\x1b[m"},
+		{Prefix: "\x1b[36m", Suffix: "\x1b[m"},
+		{Prefix: "\x1b[93m", Suffix: "\x1b[m"},
+		{Prefix: "\x1b[91m", Suffix: "\x1b[m"},
 	}
 
 	return Theme{
 		Timestamp:   VariableThemeItem{Prefix: "\x1b[2m", Suffix: "\x1b[m"},
 		Level:       level,
+		LevelValue:  levelValue,
 		Message:     VariableThemeItem{Prefix: "\x1b[1m", Suffix: "\x1b[m"},
 		Key:         VariableThemeItem{Prefix: "\x1b[32m"},
 		EqualSign:   VariableThemeItem{Prefix: "\x1b[2m", Suffix: "\x1b[m"},
@@ -39,8 +46,14 @@ func ThemeDefault() Theme {
 // ThemeFancy returns a variant of default theme with fancy characters.
 func ThemeFancy() Theme {
 	theme := ThemeDefault()
+
+	tuneLevel := func(s *string) {
+		*s = strings.ReplaceAll(*s, "|", "│")
+	}
+
 	for i := range theme.Level {
-		theme.Level[i].Text = strings.ReplaceAll(theme.Level[i].Text, "|", "│")
+		tuneLevel(&theme.Level[i].Prefix)
+		tuneLevel(&theme.Level[i].Suffix)
 	}
 
 	theme.Source.Prefix = strings.ReplaceAll(theme.Source.Prefix, "@", "→")
@@ -50,16 +63,17 @@ func ThemeFancy() Theme {
 
 // ThemeTint returns a theme with emulation of color scheme of [tint](https://github.com/lmittmann/tint) package.
 func ThemeTint() Theme {
-	level := [4]FixedThemeItem{
-		{Text: "DBG"},
-		{Text: "\x1b[32mINF\x1b[m"},
-		{Text: "\x1b[93mWRN\x1b[m"},
-		{Text: "\x1b[91mERR\x1b[m"},
+	level := [4]VariableThemeItem{
+		{},
+		{Prefix: "\x1b[32m", Suffix: "\x1b[m"},
+		{Prefix: "\x1b[93m", Suffix: "\x1b[m"},
+		{Prefix: "\x1b[91m", Suffix: "\x1b[m"},
 	}
 
 	return Theme{
 		Timestamp:   VariableThemeItem{Prefix: "\x1b[2m", Suffix: "\x1b[m"},
 		Level:       level,
+		LevelValue:  level,
 		Key:         VariableThemeItem{Prefix: "\x1b[2m"},
 		EqualSign:   VariableThemeItem{Suffix: "\x1b[m"},
 		Source:      VariableThemeItem{Prefix: "\x1b[2;3m@ ", Suffix: "\x1b[m"},
@@ -73,7 +87,8 @@ func ThemeTint() Theme {
 // Theme is a theme for the Handler.
 type Theme struct {
 	Timestamp   VariableThemeItem
-	Level       [4]FixedThemeItem
+	Level       [4]VariableThemeItem
+	LevelValue  [4]VariableThemeItem
 	Message     VariableThemeItem
 	Key         VariableThemeItem
 	EqualSign   VariableThemeItem
@@ -97,7 +112,7 @@ type Theme struct {
 func (t Theme) Plain() Theme {
 	return Theme{
 		Timestamp:   t.Timestamp.Plain(),
-		Level:       [4]FixedThemeItem{t.Level[0].Plain(), t.Level[1].Plain(), t.Level[2].Plain(), t.Level[3].Plain()},
+		Level:       [4]VariableThemeItem{t.Level[0].Plain(), t.Level[1].Plain(), t.Level[2].Plain(), t.Level[3].Plain()},
 		Message:     t.Message.Plain(),
 		Key:         t.Key.Plain(),
 		EqualSign:   t.EqualSign.Plain(),
