@@ -58,6 +58,9 @@ func Default() Theme {
 				Prefix: "\x1b[m",
 				Suffix: "\x1b[1m",
 			},
+			Elipsis: Item{
+				Prefix: "\x1b[m",
+			},
 		},
 		Key: Item{
 			Prefix: "\x1b[32m",
@@ -77,6 +80,10 @@ func Default() Theme {
 				Suffix: "\x1b[22m",
 			},
 			Escape: Item{
+				Prefix: "\x1b[2m",
+				Suffix: "\x1b[22m",
+			},
+			Elipsis: Item{
 				Prefix: "\x1b[2m",
 				Suffix: "\x1b[22m",
 			},
@@ -105,6 +112,10 @@ func Default() Theme {
 			Escape: Item{
 				Prefix: "\x1b[2m",
 				Suffix: "\x1b[22m",
+			},
+			Elipsis: Item{
+				Prefix: "\x1b[31;2m",
+				Suffix: "\x1b[m",
 			},
 		},
 		DurationValue: Item{

@@ -14,6 +14,7 @@ import (
 	"reflect"
 	"runtime"
 	"slices"
+	"strings"
 	"sync"
 	"time"
 	"unicode/utf8"
@@ -91,7 +92,7 @@ func (h *Handler) Handle(ctx context.Context, record slog.Record) error {
 			if attr.Value.Kind() == slog.KindTime {
 				h.appendTimestamp(hs, attr.Value.Time())
 			} else {
-				h.appendValue(hs, attr.Value, false)
+				h.appendValue(hs, attr.Value, false, false)
 			}
 		}
 		hs.buf.AppendString(h.stc.Time.Suffix)
@@ -106,14 +107,18 @@ func (h *Handler) Handle(ctx context.Context, record slog.Record) error {
 				record.Message = attr.Value.String()
 			default:
 				record.Message = ""
-				h.appendValue(hs, attr.Value, false)
+				h.appendValue(hs, attr.Value, false, false)
 			}
 		}
 	}
 
+	hs.messageBegin = hs.buf.Len()
+
 	if record.Message != "" {
 		if quoting.MessageContext().IsNeeded(record.Message) {
-			h.appendQuotedString(hs, &h.stc.Message, record.Message)
+			if !h.appendQuotedString(hs, &h.stc.Message, record.Message, true) {
+				hs.addAttrToExpand(slog.String(slog.MessageKey, record.Message))
+			}
 		} else {
 			h.appendUnquotedString(hs, &h.stc.Message, record.Message)
 		}
@@ -133,6 +138,22 @@ func (h *Handler) Handle(ctx context.Context, record slog.Record) error {
 			hs.buf.AppendString(h.stc.Source.Prefix)
 			h.appendSource(hs, src)
 			hs.buf.AppendString(h.stc.Source.Suffix)
+		}
+	}
+
+	if len(hs.attrsToExpand) != 0 {
+		hs.expandingAttrs = true
+		for _, attr := range hs.attrsToExpand {
+			hs.buf.AppendByte('\n')
+			hs.buf.AppendBytes(hs.buf[:hs.messageBegin])
+			hs.buf.AppendString(h.stc.Key.Prefix)
+			hs.buf.AppendString(h.keyPrefix)
+			hs.buf.AppendString(attr.KeyPrefix)
+			hs.buf.AppendString(attr.Key)
+			hs.buf.AppendString(h.stc.MapKeyValueSep)
+			hs.buf.AppendString(h.stc.Key.Suffix)
+			hs.buf.AppendByte('\n')
+			h.appendValue(hs, attr.Value, false, false)
 		}
 	}
 
@@ -292,7 +313,10 @@ func (h *Handler) appendAttr(hs *handleState, attr slog.Attr, basePrefixLen int)
 		}
 	} else {
 		h.appendKey(hs, attr.Key, basePrefixLen)
-		h.appendValue(hs, attr.Value, true)
+		hs.buf.AppendString(h.stc.KeyValueSep)
+		if !h.appendValue(hs, attr.Value, true, !hs.expandingAttrs) {
+			hs.addAttrToExpand(attr)
+		}
 		hs.buf.AppendByte(' ')
 	}
 }
@@ -305,10 +329,10 @@ func (h *Handler) appendKey(hs *handleState, key string, basePrefixLen int) {
 	hs.buf.AppendString(h.stc.Key.Suffix)
 }
 
-func (h *Handler) appendValue(hs *handleState, v slog.Value, quote bool) {
+func (h *Handler) appendValue(hs *handleState, v slog.Value, quote bool, breakOnNewLine bool) bool {
 	switch v.Kind() {
 	case slog.KindString:
-		h.appendString(hs, &h.stc.StringValue, v.String(), quote)
+		return h.appendString(hs, &h.stc.StringValue, v.String(), quote, breakOnNewLine)
 	case slog.KindInt64:
 		hs.buf.AppendString(h.stc.NumberValue.Prefix)
 		hs.buf.AppendInt(v.Int64())
@@ -339,9 +363,9 @@ func (h *Handler) appendValue(hs *handleState, v slog.Value, quote bool) {
 				if i != 0 {
 					hs.buf.AppendString(h.stc.MapPairSep)
 				}
-				h.appendString(hs, &h.stc.StringValue, attr.Key, quote)
+				h.appendString(hs, &h.stc.StringValue, attr.Key, quote, false)
 				hs.buf.AppendString(h.stc.MapKeyValueSep)
-				h.appendValue(hs, attr.Value, true)
+				h.appendValue(hs, attr.Value, true, false)
 			}
 			hs.buf.AppendString(h.stc.Map.Suffix)
 		}
@@ -356,14 +380,18 @@ func (h *Handler) appendValue(hs *handleState, v slog.Value, quote bool) {
 		case slog.Level:
 			h.appendLevelValue(hs, v)
 		case error:
-			h.appendString(hs, &h.stc.ErrorValue, v.Error(), quote)
+			return h.appendString(hs, &h.stc.ErrorValue, v.Error(), quote, breakOnNewLine)
 		case fmt.Stringer:
-			if v, ok := safeResolveValue(h, hs, v.String); ok {
-				h.appendString(hs, &h.stc.StringValue, v, quote)
+			if v, ok, errorAppended := safeResolveValue(h, hs, v.String); ok {
+				return h.appendString(hs, &h.stc.StringValue, v, quote, breakOnNewLine)
+			} else {
+				return errorAppended
 			}
 		case encoding.TextMarshaler:
-			if data, ok := safeResolveValueErr(h, hs, v.MarshalText); ok {
+			if data, ok, errorAppended := safeResolveValueErr(h, hs, v.MarshalText); ok {
 				h.appendByteString(hs, &h.stc.StringValue, data, quote)
+			} else {
+				return errorAppended
 			}
 		case *slog.Source:
 			h.appendSource(hs, *v)
@@ -375,6 +403,8 @@ func (h *Handler) appendValue(hs *handleState, v slog.Value, quote bool) {
 			h.appendAnyValue(hs, v, quote)
 		}
 	}
+
+	return true
 }
 
 func (h *Handler) appendBytesValue(hs *handleState, v []byte, quote bool) {
@@ -409,7 +439,7 @@ func (h *Handler) appendAnyValue(hs *handleState, v any, quote bool) {
 				if i != 0 {
 					hs.buf.AppendString(h.stc.ArraySep)
 				}
-				h.appendValue(hs, slog.AnyValue(rv.Index(i).Interface()), quote)
+				h.appendValue(hs, slog.AnyValue(rv.Index(i).Interface()), true, false)
 			}
 			hs.buf.AppendString(h.stc.Array.Suffix)
 		}
@@ -425,9 +455,9 @@ func (h *Handler) appendAnyValue(hs *handleState, v any, quote bool) {
 				if i != 0 {
 					hs.buf.AppendString(h.stc.MapPairSep)
 				}
-				h.appendValue(hs, slog.AnyValue(k.Interface()), true)
+				h.appendValue(hs, slog.AnyValue(k.Interface()), true, false)
 				hs.buf.AppendString(h.stc.MapKeyValueSep)
-				h.appendValue(hs, slog.AnyValue(rv.MapIndex(k).Interface()), true)
+				h.appendValue(hs, slog.AnyValue(rv.MapIndex(k).Interface()), true, false)
 			}
 			hs.buf.AppendString(h.stc.Map.Suffix)
 		}
@@ -438,16 +468,38 @@ func (h *Handler) appendAnyValue(hs *handleState, v any, quote bool) {
 	}
 }
 
-func (h *Handler) appendString(hs *handleState, ss *stylecache.StringStyle, s string, quote bool) {
-	if quote {
+func (h *Handler) appendString(hs *handleState, ss *stylecache.StringStyle, s string, quote bool, breakOnNewLine bool) bool {
+	switch {
+	case hs.expandingAttrs:
+		s = strings.TrimSpace(s)
+		for {
+			i := strings.IndexByte(s, '\n')
+			if i == -1 {
+				i = len(s)
+			}
+			hs.buf.AppendBytes(hs.buf[:hs.messageBegin])
+			hs.buf.AppendString(ss.Unquoted.Prefix)
+			hs.buf.AppendString(h.stc.ExpandedAttr.ValueIndent)
+			hs.buf.AppendString(s[:i])
+			hs.buf.AppendString(ss.Unquoted.Suffix)
+			hs.buf.AppendByte('\n')
+			if i < len(s) {
+				s = s[i+1:]
+			} else {
+				break
+			}
+		}
+	case quote:
 		if s == "null" {
 			hs.buf.AppendString(ss.Null)
 		} else {
-			h.appendAutoQuotedString(hs, ss, s)
+			return h.appendAutoQuotedString(hs, ss, s, breakOnNewLine)
 		}
-	} else {
+	default:
 		hs.buf.AppendString(s)
 	}
+
+	return true
 }
 
 func (h *Handler) appendByteString(hs *handleState, ss *stylecache.StringStyle, s []byte, quote bool) {
@@ -462,15 +514,17 @@ func (h *Handler) appendByteString(hs *handleState, ss *stylecache.StringStyle, 
 	}
 }
 
-func (h *Handler) appendAutoQuotedString(hs *handleState, ss *stylecache.StringStyle, v string) {
+func (h *Handler) appendAutoQuotedString(hs *handleState, ss *stylecache.StringStyle, v string, breakOnNewLine bool) bool {
 	switch {
 	case len(v) == 0:
 		hs.buf.AppendString(ss.Empty)
 	case quoting.StringValueContext().IsNeeded(v):
-		h.appendQuotedString(hs, ss, v)
+		return h.appendQuotedString(hs, ss, v, breakOnNewLine)
 	default:
 		hs.buf.AppendString(v)
 	}
+
+	return true
 }
 
 func (h *Handler) appendUnquotedString(hs *handleState, ss *stylecache.StringStyle, v string) {
@@ -479,10 +533,15 @@ func (h *Handler) appendUnquotedString(hs *handleState, ss *stylecache.StringSty
 	hs.buf.AppendString(ss.Unquoted.Suffix)
 }
 
-func (h *Handler) appendQuotedString(hs *handleState, ss *stylecache.StringStyle, v string) {
+func (h *Handler) appendQuotedString(hs *handleState, ss *stylecache.StringStyle, v string, breakOnNewLine bool) bool {
 	hs.buf.AppendString(ss.Quoted.Prefix)
-	h.appendEscapedString(hs, ss, v)
+	done := h.appendEscapedString(hs, ss, v, breakOnNewLine)
 	hs.buf.AppendString(ss.Quoted.Suffix)
+	if !done {
+		hs.buf.AppendString(ss.Elipsis)
+	}
+
+	return done
 }
 
 func (h *Handler) appendAutoQuotedByteString(hs *handleState, ss *stylecache.StringStyle, v []byte) {
@@ -502,7 +561,7 @@ func (h *Handler) appendQuotedByteString(hs *handleState, ss *stylecache.StringS
 	hs.buf.AppendString(ss.Quoted.Suffix)
 }
 
-func (h *Handler) appendEscapedString(hs *handleState, ss *stylecache.StringStyle, s string) {
+func (h *Handler) appendEscapedString(hs *handleState, ss *stylecache.StringStyle, s string, breakOnNewLine bool) bool {
 	p := 0
 
 	for i := 0; i < len(s); {
@@ -520,6 +579,9 @@ func (h *Handler) appendEscapedString(hs *handleState, ss *stylecache.StringStyl
 				hs.buf.AppendString(ss.Escape.CR)
 			case '\n':
 				hs.buf.AppendString(ss.Escape.LF)
+				if breakOnNewLine && i > int(h.expansionThreshold) {
+					return false
+				}
 			case '\\':
 				hs.buf.AppendString(ss.Escape.Backslash)
 			case '"':
@@ -550,6 +612,8 @@ func (h *Handler) appendEscapedString(hs *handleState, ss *stylecache.StringStyl
 	}
 
 	hs.buf.AppendString(s[p:])
+
+	return true
 }
 
 func (h *Handler) appendEscapedByteString(hs *handleState, ss *stylecache.StringStyle, s []byte) {
@@ -671,19 +735,23 @@ func (h *Handler) source(pc uintptr) slog.Source {
 	}
 }
 
-func (h *Handler) appendEncodeError(hs *handleState, err error) {
+func (h *Handler) appendEncodeError(hs *handleState, err error, breakOnNewLine bool) bool {
 	hs.buf.AppendString(h.stc.EvalError.Prefix)
-	h.appendQuotedString(hs, &h.stc.ErrorValue, err.Error())
+	done := h.appendQuotedString(hs, &h.stc.ErrorValue, err.Error(), true)
 	hs.buf.AppendString(h.stc.EvalError.Suffix)
+
+	return done
 }
 
-func (h *Handler) appendEncodePanic(hs *handleState, p any) {
+func (h *Handler) appendEncodePanic(hs *handleState, p any, breakOnNewLine bool) bool {
 	hs.scratch.Reset()
 	_, _ = fmt.Fprintf(&hs.scratch, "%v", p)
 
 	hs.buf.AppendString(h.stc.EvalError.Prefix)
 	h.appendQuotedByteString(hs, &h.stc.ErrorValue, hs.scratch)
 	hs.buf.AppendString(h.stc.EvalError.Suffix)
+
+	return true
 }
 
 // ---
@@ -762,31 +830,31 @@ func (g groups) fork() groups {
 
 // ---
 
-func safeResolveValue[T any](h *Handler, hs *handleState, resolve func() T) (_ T, ok bool) {
+func safeResolveValue[T any](h *Handler, hs *handleState, resolve func() T) (_ T, resolved, errorAppended bool) {
 	defer func() {
 		if p := recover(); p != nil {
-			h.appendEncodePanic(hs, p)
-			ok = false
+			errorAppended = h.appendEncodePanic(hs, p, true)
+			resolved = false
 		}
 	}()
 
-	return resolve(), true
+	return resolve(), true, true
 }
 
-func safeResolveValueErr[T any](h *Handler, hs *handleState, resolve func() (T, error)) (value T, ok bool) {
+func safeResolveValueErr[T any](h *Handler, hs *handleState, resolve func() (T, error)) (value T, resolved, errorAppended bool) {
 	var err error
 
 	defer func() {
 		if p := recover(); p != nil {
-			h.appendEncodePanic(hs, p)
+			errorAppended = h.appendEncodePanic(hs, p, true)
 		} else if err != nil {
-			h.appendEncodeError(hs, err)
+			errorAppended = h.appendEncodeError(hs, err, true)
 		}
 	}()
 
 	value, err = resolve()
 
-	return value, err == nil
+	return value, err == nil, true
 }
 
 // ---

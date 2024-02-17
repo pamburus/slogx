@@ -2,6 +2,7 @@ package slogtext
 
 import (
 	"context"
+	"log/slog"
 	"sync"
 )
 
@@ -22,6 +23,9 @@ type handleState struct {
 	keyPrefix      buffer
 	groupPrefixLen int
 	groups         []string
+	attrsToExpand  []attrToExpand
+	messageBegin   int
+	expandingAttrs bool
 }
 
 func (s *handleState) release() {
@@ -38,8 +42,23 @@ func (s *handleState) release() {
 	s.groups = s.groups[:0]
 	s.keyPrefix.Reset()
 	s.groupPrefixLen = 0
+	s.attrsToExpand = s.attrsToExpand[:0]
+	s.expandingAttrs = false
+	s.messageBegin = 0
 
 	handleStatePool.Put(s)
+}
+
+func (s *handleState) addAttrToExpand(attr slog.Attr) {
+	s.attrsToExpand = append(s.attrsToExpand, attrToExpand{
+		Attr:      attr,
+		KeyPrefix: s.keyPrefix.String(),
+	})
+}
+
+type attrToExpand struct {
+	slog.Attr
+	KeyPrefix string
 }
 
 // ---
@@ -52,9 +71,10 @@ var handleStatePool = sync.Pool{
 		arena := buffer(make([]byte, 0, arenaSize))
 
 		s := &handleState{
-			buf:     arena[0:0:bufSize],
-			scratch: arena[bufSize:bufSize],
-			groups:  make([]string, 0, 8),
+			buf:           arena[0:0:bufSize],
+			scratch:       arena[bufSize:bufSize],
+			groups:        make([]string, 0, 8),
+			attrsToExpand: make([]attrToExpand, 0, 8),
 		}
 		s.keyPrefix.Grow(128)
 

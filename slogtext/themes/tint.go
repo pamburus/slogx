@@ -19,6 +19,10 @@ func Tint() Theme {
 				Prefix: "\x1b[2m",
 				Suffix: "\x1b[22m",
 			},
+			Elipsis: Item{
+				Prefix: "\x1b[2m",
+				Suffix: "\x1b[22m",
+			},
 		},
 		Level:      level,
 		LevelValue: level,
@@ -37,6 +41,10 @@ func Tint() Theme {
 				Prefix: "\x1b[2m",
 				Suffix: "\x1b[22m",
 			},
+			Elipsis: Item{
+				Prefix: "\x1b[2m",
+				Suffix: "\x1b[22m",
+			},
 		},
 		ErrorValue: StringItem{
 			Whole: Item{
@@ -44,6 +52,10 @@ func Tint() Theme {
 				Suffix: "\x1b[m",
 			},
 			Escape: Item{
+				Prefix: "\x1b[2m",
+				Suffix: "\x1b[22m",
+			},
+			Elipsis: Item{
 				Prefix: "\x1b[2m",
 				Suffix: "\x1b[22m",
 			},

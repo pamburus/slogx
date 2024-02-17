@@ -2,6 +2,7 @@ package slogtext
 
 import (
 	"log/slog"
+	"math"
 	"time"
 
 	"github.com/pamburus/slogx/slogtext/themes"
@@ -35,6 +36,13 @@ func WithReplaceAttrFunc(f ReplaceAttrFunc) Option {
 func WithSource(include bool) Option {
 	return func(o *options) {
 		o.includeSource = include
+	}
+}
+
+// WithMultilineExpansion( sets whether to expand multiline strings in the log message.
+func WithMultilineExpansion(setting ExpansionThreshold) Option {
+	return func(o *options) {
+		o.expansionThreshold = setting
 	}
 }
 
@@ -107,6 +115,22 @@ const (
 
 // ---
 
+// ExpansionThreshold is a setting for the multiline string expansion.
+type ExpansionThreshold int
+
+const (
+	ExpandAuto  ExpansionThreshold = 0           // ExpansionAuto enables multiline string expansion if recommended.
+	ExpandNever                    = math.MaxInt // ExpansionNever disables multiline string expansion.
+	ExpandAll                      = -1          // ExpansionAlways enables multiline string expansion.
+)
+
+// ExpandIfOver returns an expansion threshold that expands multiline strings if length is over the given threshold.
+func ExpandIfOver(threshold int) ExpansionThreshold {
+	return ExpansionThreshold(threshold)
+}
+
+// ---
+
 // ReplaceAttrFunc is a function that replaces the attributes in the log message.
 type ReplaceAttrFunc func([]string, slog.Attr) slog.Attr
 
@@ -122,28 +146,30 @@ type SourceEncodeFunc func([]byte, slog.Source) []byte
 // ---
 
 type options struct {
-	leveler         slog.Leveler
-	color           ColorSetting
-	replaceAttr     ReplaceAttrFunc
-	encodeTimestamp TimeEncodeFunc
-	encodeTimeValue TimeEncodeFunc
-	encodeDuration  DurationEncodeFunc
-	encodeSource    SourceEncodeFunc
-	includeSource   bool
-	levelOffset     bool
-	bytesFormat     BytesFormat
-	theme           Theme
+	leveler            slog.Leveler
+	color              ColorSetting
+	replaceAttr        ReplaceAttrFunc
+	encodeTimestamp    TimeEncodeFunc
+	encodeTimeValue    TimeEncodeFunc
+	encodeDuration     DurationEncodeFunc
+	encodeSource       SourceEncodeFunc
+	includeSource      bool
+	levelOffset        bool
+	expansionThreshold ExpansionThreshold
+	bytesFormat        BytesFormat
+	theme              Theme
 }
 
 func defaultOptions() options {
 	return options{
-		leveler:         slog.LevelInfo,
-		color:           ColorAuto,
-		encodeTimestamp: timeLayout(time.StampMilli),
-		encodeTimeValue: timeLayout(time.StampMilli),
-		encodeDuration:  DurationAsSeconds(),
-		encodeSource:    SourceShort(),
-		theme:           themes.Default(),
+		leveler:            slog.LevelInfo,
+		color:              ColorAuto,
+		encodeTimestamp:    timeLayout(time.StampMilli),
+		encodeTimeValue:    timeLayout(time.StampMilli),
+		encodeDuration:     DurationAsSeconds(),
+		encodeSource:       SourceShort(),
+		expansionThreshold: 64,
+		theme:              themes.Default(),
 	}
 }
 

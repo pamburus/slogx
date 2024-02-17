@@ -75,6 +75,7 @@ type StringItem struct {
 	Whole   Item
 	Content Item
 	Quote   Item
+	Elipsis Item
 	Escape  Item
 }
 
@@ -84,6 +85,7 @@ func (i StringItem) Plain() StringItem {
 		Whole:   i.Whole.Plain(),
 		Content: i.Content.Plain(),
 		Quote:   i.Quote.Plain(),
+		Elipsis: i.Elipsis.Plain(),
 		Escape:  i.Escape.Plain(),
 	}
 }

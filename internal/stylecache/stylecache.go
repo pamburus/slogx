@@ -13,7 +13,8 @@ func New(theme *Theme, cfg *Config) *StyleCache {
 		Config:         *cfg,
 		Time:           st(theme.Time).ws(),
 		Message:        sst(theme.Message).ws(),
-		Key:            st(theme.Key).append(theme.KeyValueSep.Prefix + cfg.KeyValueSep + theme.KeyValueSep.Suffix),
+		Key:            st(theme.Key),
+		KeyValueSep:    st(theme.KeyValueSep).render(cfg.KeyValueSep),
 		Source:         st(theme.Source),
 		StringValue:    sst(theme.StringValue),
 		NumberValue:    st(theme.NumberValue),
@@ -39,6 +40,8 @@ func New(theme *Theme, cfg *Config) *StyleCache {
 		c.LevelValue[i] = st(theme.LevelValue[i]).ws()
 	}
 
+	c.ExpandedAttr.ValueIndent = strings.Repeat(" ", 4)
+
 	return c
 }
 
@@ -48,6 +51,7 @@ type StyleCache struct {
 	LevelLabel     [NumLevels]string
 	Message        StringStyle
 	Key            Style
+	KeyValueSep    string
 	Source         Style
 	StringValue    StringStyle
 	NumberValue    Style
@@ -66,6 +70,9 @@ type StyleCache struct {
 	MapPairSep     string
 	MapKeyValueSep string
 	Null           string
+	ExpandedAttr   struct {
+		ValueIndent string
+	}
 }
 
 // ---
@@ -87,6 +94,7 @@ func sst(sti themes.StringItem) StringStyle {
 		Quoted:   quoted,
 		Empty:    st(sti.Quote).render(`""`),
 		Null:     quoted.render("null"),
+		Elipsis:  st(sti.Elipsis).render("..."),
 		Escape: Escape{
 			Style:     escape,
 			Tab:       escape.render(`\t`),

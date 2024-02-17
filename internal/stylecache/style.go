@@ -33,6 +33,7 @@ type StringStyle struct {
 	Quoted   Style
 	Empty    string
 	Null     string
+	Elipsis  string
 	Escape   Escape
 }
 
@@ -42,18 +43,13 @@ func (s StringStyle) append(suffix string) StringStyle {
 		Quoted:   s.Quoted.append(suffix),
 		Empty:    s.Empty + suffix,
 		Null:     s.Null + suffix,
+		Elipsis:  s.Elipsis + suffix,
 		Escape:   s.Escape,
 	}
 }
 
 func (s StringStyle) ws() StringStyle {
-	return StringStyle{
-		Unquoted: s.Unquoted.ws(),
-		Quoted:   s.Quoted.ws(),
-		Empty:    s.Empty + " ",
-		Null:     s.Null + " ",
-		Escape:   s.Escape,
-	}
+	return s.append(" ")
 }
 
 // ---
