@@ -334,10 +334,10 @@ func (h *Handler) appendValue(hs *handleState, v slog.Value, quote bool) {
 			hs.buf.AppendString(h.tc.Map.prefix)
 			for i, attr := range attrs {
 				if i != 0 {
-					hs.buf.AppendString(h.tc.MapSep1)
+					hs.buf.AppendString(h.tc.MapPairSep)
 				}
 				h.appendString(hs, attr.Key, quote)
-				hs.buf.AppendString(h.tc.MapSep2)
+				hs.buf.AppendString(h.tc.MapKeyValueSep)
 				h.appendValue(hs, attr.Value, true)
 			}
 			hs.buf.AppendString(h.tc.Map.suffix)
@@ -424,10 +424,10 @@ func (h *Handler) appendAnyValue(hs *handleState, v any, quote bool) {
 			hs.buf.AppendString(h.tc.Map.prefix)
 			for i, k := range rv.MapKeys() {
 				if i != 0 {
-					hs.buf.AppendString(h.tc.MapSep1)
+					hs.buf.AppendString(h.tc.MapPairSep)
 				}
 				h.appendValue(hs, slog.AnyValue(k.Interface()), true)
-				hs.buf.AppendString(h.tc.MapSep2)
+				hs.buf.AppendString(h.tc.MapKeyValueSep)
 				h.appendValue(hs, slog.AnyValue(rv.MapIndex(k).Interface()), true)
 			}
 			hs.buf.AppendString(h.tc.Map.suffix)
@@ -706,8 +706,8 @@ func newStyleCache(theme *Theme) styleCache {
 		Error:     styleFromTheme(theme.ErrorValue),
 		Duration:  styleFromTheme(theme.DurationValue),
 		Time:      styleFromTheme(theme.TimeValue),
-		EvalError: styleFromTheme(theme.EvalError),
-		EvalPanic: styleFromTheme(theme.EvalPanic),
+		EvalError: newStyle(styleFromTheme(theme.Unresolved.Begin).render("$!(ERROR: "), styleFromTheme(theme.Unresolved.End).render(")")),
+		EvalPanic: newStyle(styleFromTheme(theme.Unresolved.Begin).render("$!(PANIC: "), styleFromTheme(theme.Unresolved.End).render(")")),
 		Array:     newStyle(styleFromTheme(theme.Array.Begin).render("["), styleFromTheme(theme.Array.End).render("]")),
 		Map:       newStyle(styleFromTheme(theme.Map.Begin).render("{"), styleFromTheme(theme.Map.End).render("}")),
 	}
@@ -740,7 +740,7 @@ type styleCache struct {
 	EvalPanic    style
 	Array        style
 	Map          style
-	Level        [4]style
+	Level        [NumLevels]style
 }
 
 // ---
@@ -759,9 +759,9 @@ func newThemeCache(theme *Theme) themeCache {
 	tc.EscLF = tc.Escape.render(`\n`)
 	tc.EscBackslash = tc.Escape.render(`\`) + `\`
 	tc.EscQuote = tc.Escape.render(`\`) + `"`
-	tc.ArraySep = styleFromTheme(theme.Array.Sep1).render(",")
-	tc.MapSep1 = styleFromTheme(theme.Map.Sep1).render(",")
-	tc.MapSep2 = styleFromTheme(theme.Map.Sep2).render(":")
+	tc.ArraySep = styleFromTheme(theme.Array.Sep).render(",")
+	tc.MapPairSep = styleFromTheme(theme.Map.PairSep).render(",")
+	tc.MapKeyValueSep = styleFromTheme(theme.Map.KeyValueSep).render(":")
 	tc.EmptyArray = strings.TrimSpace(sc.Array.prefix) + strings.TrimSpace(sc.Array.suffix)
 	tc.EmptyMap = strings.TrimSpace(sc.Map.prefix) + strings.TrimSpace(sc.Map.suffix)
 	tc.Null = styleFromTheme(theme.NullValue).render("null")
@@ -774,27 +774,27 @@ func newThemeCache(theme *Theme) themeCache {
 
 type themeCache struct {
 	styleCache
-	DoubleQuote  string
-	QuadQuote    string
-	QuotedNull   string
-	EscTab       string
-	EscCR        string
-	EscLF        string
-	EscBackslash string
-	EscQuote     string
-	LevelLabel   [NumLevels]string
-	EmptyArray   string
-	ArraySep     string
-	EmptyMap     string
-	MapSep1      string
-	MapSep2      string
-	Null         string
+	DoubleQuote    string
+	QuadQuote      string
+	QuotedNull     string
+	EscTab         string
+	EscCR          string
+	EscLF          string
+	EscBackslash   string
+	EscQuote       string
+	LevelLabel     [NumLevels]string
+	EmptyArray     string
+	ArraySep       string
+	EmptyMap       string
+	MapPairSep     string
+	MapKeyValueSep string
+	Null           string
 }
 
 // ---
 
 type groupKeys struct {
-	head    [4]string
+	head    [numEmbeddedGroups]string
 	tail    []string
 	headLen int
 }
@@ -824,7 +824,7 @@ func (g groupKeys) fork() groupKeys {
 // ---
 
 type groups struct {
-	head    [4]group
+	head    [numEmbeddedGroups]group
 	tail    []group
 	headLen int
 }
@@ -955,16 +955,17 @@ type cache struct {
 
 // ---
 
-var levelLabels = [4]string{"DBG", "INF", "WRN", "ERR"}
-var levelNames = [4]string{"DEBUG", "INFO", "WARN", "ERROR"}
-var levels = [4]slog.Level{slog.LevelDebug, slog.LevelInfo, slog.LevelWarn, slog.LevelError}
+var levelLabels = [NumLevels]string{"DBG", "INF", "WRN", "ERR"}
+var levelNames = [NumLevels]string{"DEBUG", "INFO", "WARN", "ERROR"}
+var levels = [NumLevels]slog.Level{slog.LevelDebug, slog.LevelInfo, slog.LevelWarn, slog.LevelError}
 
 func levelIndex(level slog.Level) int {
-	return min(max(0, (int(level)+4)/4), 3)
+	return min(max(0, (int(level)+4)/4), NumLevels-1)
 }
 
 // ---
 
 const hexDigits = "0123456789abcdef"
+const numEmbeddedGroups = 4
 
 var _ slog.Handler = (*Handler)(nil)
