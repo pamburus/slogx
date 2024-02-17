@@ -11,6 +11,7 @@ import (
 
 	"github.com/pamburus/slogx/slogc"
 	"github.com/pamburus/slogx/slogtext"
+	"github.com/pamburus/slogx/slogtext/themes"
 )
 
 func main() {
@@ -18,7 +19,7 @@ func main() {
 	var handler slog.Handler = slogtext.NewHandler(os.Stdout,
 		slogtext.WithLevel(slog.LevelDebug),
 		slogtext.WithSource(true),
-		slogtext.WithTheme(slogtext.ThemeFancy()),
+		slogtext.WithTheme(themes.Fancy()),
 	)
 
 	// Create logger and set it as default.
