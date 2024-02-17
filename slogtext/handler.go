@@ -14,13 +14,14 @@ import (
 	"reflect"
 	"runtime"
 	"slices"
-	"strings"
 	"sync"
 	"time"
 	"unicode/utf8"
 
 	"github.com/pamburus/slogx/internal/quoting"
+	"github.com/pamburus/slogx/internal/stylecache"
 	"github.com/pamburus/slogx/internal/tty"
+	"github.com/pamburus/slogx/slogtext/themes"
 )
 
 // NewHandler returns a new slog.Handler with the given Writer and
@@ -45,7 +46,7 @@ func NewHandler(writer io.Writer, options ...Option) *Handler {
 	return &Handler{
 		shared: &shared{
 			opts,
-			newThemeCache(&opts.theme),
+			*stylecache.New(&opts.theme, stylecache.DefaultConfig()),
 			sync.Mutex{},
 			writer,
 		},
@@ -83,7 +84,7 @@ func (h *Handler) Handle(ctx context.Context, record slog.Record) error {
 
 	if !record.Time.IsZero() {
 		val := record.Time.Round(0)
-		h.tc.Timestamp.open(hs)
+		hs.buf.AppendString(h.stc.Time.Prefix)
 		if replace == nil {
 			h.appendTimestamp(hs, record.Time)
 		} else if attr := replace(nil, slog.Time(slog.TimeKey, val)); attr.Key != "" {
@@ -93,18 +94,18 @@ func (h *Handler) Handle(ctx context.Context, record slog.Record) error {
 				h.appendValue(hs, attr.Value, false)
 			}
 		}
-		h.tc.Timestamp.close(hs)
+		hs.buf.AppendString(h.stc.Time.Suffix)
 	}
 
 	h.appendLevel(hs, record.Level)
 
-	h.tc.Message.open(hs)
-	if replace == nil {
-		hs.buf.AppendString(record.Message)
-	} else if a := replace(nil, slog.String(slog.MessageKey, record.Message)); a.Key != "" {
-		h.appendValue(hs, a.Value, false)
+	if record.Message != "" {
+		if quoting.MessageContext().IsNeeded(record.Message) {
+			h.appendQuotedString(hs, &h.stc.Message, record.Message)
+		} else {
+			h.appendUnquotedString(hs, &h.stc.Message, record.Message)
+		}
 	}
-	h.tc.Message.close(hs)
 
 	h.appendHandlerAttrs(hs)
 
@@ -117,13 +118,13 @@ func (h *Handler) Handle(ctx context.Context, record slog.Record) error {
 	if h.includeSource {
 		src := h.source(record.PC)
 		if src.File != "" {
-			h.tc.Source.open(hs)
+			hs.buf.AppendString(h.stc.Source.Prefix)
 			if replace == nil {
 				h.appendSource(hs, src)
 			} else if attr := replace(nil, slog.Any(slog.SourceKey, src)); attr.Key != "" {
 				h.appendValue(hs, attr.Value, false)
 			}
-			h.tc.Source.close(hs)
+			hs.buf.AppendString(h.stc.Source.Suffix)
 		}
 	}
 
@@ -201,7 +202,7 @@ func (h *Handler) appendTime(hs *handleState, value time.Time, quote bool) {
 	hs.scratch.Reset()
 	hs.scratch = h.encodeTimeValue(hs.scratch, value)
 	if quote {
-		h.appendAutoQuotedByteString(hs, hs.scratch.Bytes())
+		h.appendAutoQuotedByteString(hs, &h.stc.StringValue, hs.scratch.Bytes())
 	} else {
 		hs.buf.AppendBytes(hs.scratch.Bytes())
 	}
@@ -211,7 +212,7 @@ func (h *Handler) appendDuration(hs *handleState, value time.Duration, quote boo
 	hs.scratch.Reset()
 	hs.scratch = h.encodeDuration(hs.scratch, value)
 	if quote {
-		h.appendAutoQuotedByteString(hs, hs.scratch.Bytes())
+		h.appendAutoQuotedByteString(hs, &h.stc.StringValue, hs.scratch.Bytes())
 	} else {
 		hs.buf.AppendBytes(hs.scratch.Bytes())
 	}
@@ -289,80 +290,72 @@ func (h *Handler) appendAttr(hs *handleState, attr slog.Attr, basePrefixLen int)
 }
 
 func (h *Handler) appendKey(hs *handleState, key string, basePrefixLen int) {
-	hs.buf.AppendString(h.tc.Key.prefix)
+	hs.buf.AppendString(h.stc.Key.Unquoted.Prefix)
 	hs.buf.AppendString(h.keyPrefix[:basePrefixLen])
 	hs.buf.AppendBytes(hs.keyPrefix)
 	hs.buf.AppendString(key)
-	hs.buf.AppendString(h.tc.Key.suffix)
+	hs.buf.AppendString(h.stc.Key.Unquoted.Suffix)
 }
 
 func (h *Handler) appendValue(hs *handleState, v slog.Value, quote bool) {
 	switch v.Kind() {
 	case slog.KindString:
-		if h.tc.String.empty {
-			h.appendString(hs, v.String(), quote)
-		} else {
-			hs.buf.AppendString(h.tc.String.prefix)
-			h.appendString(hs, v.String(), quote)
-			hs.buf.AppendString(h.tc.String.suffix)
-		}
+		h.appendString(hs, &h.stc.StringValue, v.String(), quote)
 	case slog.KindInt64:
-		h.tc.Number.apply(hs, func() {
-			hs.buf.AppendInt(v.Int64())
-		})
+		hs.buf.AppendString(h.stc.NumberValue.Prefix)
+		hs.buf.AppendInt(v.Int64())
+		hs.buf.AppendString(h.stc.NumberValue.Suffix)
 	case slog.KindUint64:
-		h.tc.Number.apply(hs, func() {
-			hs.buf.AppendUint(v.Uint64())
-		})
+		hs.buf.AppendString(h.stc.NumberValue.Prefix)
+		hs.buf.AppendUint(v.Uint64())
+		hs.buf.AppendString(h.stc.NumberValue.Suffix)
 	case slog.KindFloat64:
-		h.tc.Number.apply(hs, func() {
-			hs.buf.AppendFloat64(v.Float64())
-		})
+		hs.buf.AppendString(h.stc.NumberValue.Prefix)
+		hs.buf.AppendFloat64(v.Float64())
+		hs.buf.AppendString(h.stc.NumberValue.Suffix)
 	case slog.KindBool:
-		h.tc.Bool.apply(hs, func() {
-			hs.buf.AppendBool(v.Bool())
-		})
+		hs.buf.AppendString(h.stc.BoolValue.Prefix)
+		hs.buf.AppendBool(v.Bool())
+		hs.buf.AppendString(h.stc.BoolValue.Suffix)
 	case slog.KindDuration:
-		h.tc.Duration.apply(hs, func() {
-			h.appendDuration(hs, v.Duration(), quote)
-		})
+		hs.buf.AppendString(h.stc.DurationValue.Prefix)
+		h.appendDuration(hs, v.Duration(), quote)
+		hs.buf.AppendString(h.stc.DurationValue.Suffix)
 	case slog.KindGroup:
 		attrs := v.Group()
 		if len(attrs) == 0 {
-			hs.buf.AppendString(h.tc.EmptyMap)
+			hs.buf.AppendString(h.stc.EmptyMap)
 		} else {
-			hs.buf.AppendString(h.tc.Map.prefix)
+			hs.buf.AppendString(h.stc.Map.Prefix)
 			for i, attr := range attrs {
 				if i != 0 {
-					hs.buf.AppendString(h.tc.MapPairSep)
+					hs.buf.AppendString(h.stc.MapPairSep)
 				}
-				h.appendString(hs, attr.Key, quote)
-				hs.buf.AppendString(h.tc.MapKeyValueSep)
+				h.appendString(hs, &h.stc.Key, attr.Key, quote)
+				hs.buf.AppendString(h.stc.MapKeyValueSep)
 				h.appendValue(hs, attr.Value, true)
 			}
-			hs.buf.AppendString(h.tc.Map.suffix)
+			hs.buf.AppendString(h.stc.Map.Suffix)
 		}
 	case slog.KindTime:
-		h.tc.Time.apply(hs, func() {
-			h.appendTime(hs, v.Time(), quote)
-		})
+		hs.buf.AppendString(h.stc.TimeValue.Prefix)
+		h.appendTime(hs, v.Time(), quote)
+		hs.buf.AppendString(h.stc.TimeValue.Suffix)
 	case slog.KindAny:
 		switch v := v.Any().(type) {
 		case nil:
-			hs.buf.AppendString(h.tc.Null)
+			hs.buf.AppendString(h.stc.Null)
 		case slog.Level:
 			h.appendLevelValue(hs, v)
 		case error:
-			h.tc.Error.apply(hs, func() {
-				h.appendString(hs, v.Error(), quote)
-			})
+			h.appendString(hs, &h.stc.ErrorValue, v.Error(), quote)
 		case fmt.Stringer:
 			if v, ok := safeResolveValue(h, hs, v.String); ok {
-				h.appendString(hs, v, quote)
+				h.appendString(hs, &h.stc.StringValue, v, quote)
 			}
 		case encoding.TextMarshaler:
 			if data, ok := safeResolveValueErr(h, hs, v.MarshalText); ok {
-				h.appendByteString(hs, data, quote)
+				h.appendByteString(hs, &h.stc.StringValue, data, quote)
 			}
 		case *slog.Source:
 			h.appendSource(hs, *v)
@@ -381,17 +374,15 @@ func (h *Handler) appendBytesValue(hs *handleState, v []byte, quote bool) {
 	default:
 		fallthrough
 	case BytesFormatString:
-		hs.buf.AppendString(h.tc.String.prefix)
-		h.appendByteString(hs, v, quote)
-		hs.buf.AppendString(h.tc.String.suffix)
+		h.appendByteString(hs, &h.stc.StringValue, v, quote)
 	case BytesFormatHex:
-		hs.buf.AppendString(h.tc.QuotedString.prefix)
+		hs.buf.AppendString(h.stc.StringValue.Quoted.Prefix)
 		hex.Encode(hs.buf.Extend(hex.EncodedLen(len(v))), v)
-		hs.buf.AppendString(h.tc.QuotedString.suffix)
+		hs.buf.AppendString(h.stc.StringValue.Quoted.Suffix)
 	case BytesFormatBase64:
-		hs.buf.AppendString(h.tc.QuotedString.prefix)
+		hs.buf.AppendString(h.stc.StringValue.Quoted.Prefix)
 		base64.StdEncoding.Encode(hs.buf.Extend(base64.StdEncoding.EncodedLen(len(v))), v)
-		hs.buf.AppendString(h.tc.QuotedString.suffix)
+		hs.buf.AppendString(h.stc.StringValue.Quoted.Suffix)
 	}
 }
 
@@ -401,103 +392,109 @@ func (h *Handler) appendAnyValue(hs *handleState, v any, quote bool) {
 	case reflect.Slice, reflect.Array:
 		switch {
 		case rv.IsNil():
-			hs.buf.AppendString(h.tc.Null)
+			hs.buf.AppendString(h.stc.Null)
 		case rv.Len() == 0:
-			hs.buf.AppendString(h.tc.EmptyArray)
+			hs.buf.AppendString(h.stc.EmptyArray)
 		default:
-			hs.buf.AppendString(h.tc.Array.prefix)
+			hs.buf.AppendString(h.stc.Array.Prefix)
 			for i := 0; i < rv.Len(); i++ {
 				if i != 0 {
-					hs.buf.AppendString(h.tc.ArraySep)
+					hs.buf.AppendString(h.stc.ArraySep)
 				}
 				h.appendValue(hs, slog.AnyValue(rv.Index(i).Interface()), quote)
 			}
-			hs.buf.AppendString(h.tc.Array.suffix)
+			hs.buf.AppendString(h.stc.Array.Suffix)
 		}
 	case reflect.Map:
 		switch {
 		case rv.IsNil():
-			hs.buf.AppendString(h.tc.Null)
+			hs.buf.AppendString(h.stc.Null)
 		case rv.Len() == 0:
-			hs.buf.AppendString(h.tc.EmptyMap)
+			hs.buf.AppendString(h.stc.EmptyMap)
 		default:
-			hs.buf.AppendString(h.tc.Map.prefix)
+			hs.buf.AppendString(h.stc.Map.Prefix)
 			for i, k := range rv.MapKeys() {
 				if i != 0 {
-					hs.buf.AppendString(h.tc.MapPairSep)
+					hs.buf.AppendString(h.stc.MapPairSep)
 				}
 				h.appendValue(hs, slog.AnyValue(k.Interface()), true)
-				hs.buf.AppendString(h.tc.MapKeyValueSep)
+				hs.buf.AppendString(h.stc.MapKeyValueSep)
 				h.appendValue(hs, slog.AnyValue(rv.MapIndex(k).Interface()), true)
 			}
-			hs.buf.AppendString(h.tc.Map.suffix)
+			hs.buf.AppendString(h.stc.Map.Suffix)
 		}
 	default:
 		hs.scratch.Reset()
 		_, _ = fmt.Fprintf(&hs.scratch, "%+v", v)
-		h.appendByteString(hs, hs.scratch.Bytes(), quote)
+		h.appendByteString(hs, &h.stc.StringValue, hs.scratch.Bytes(), quote)
 	}
 }
 
-func (h *Handler) appendString(hs *handleState, s string, quote bool) {
+func (h *Handler) appendString(hs *handleState, ss *stylecache.StringStyle, s string, quote bool) {
 	if quote {
 		if s == "null" {
-			hs.buf.AppendString(h.tc.QuotedNull)
+			hs.buf.AppendString(ss.Null)
 		} else {
-			h.appendAutoQuotedString(hs, s)
+			h.appendAutoQuotedString(hs, ss, s)
 		}
 	} else {
 		hs.buf.AppendString(s)
 	}
 }
 
-func (h *Handler) appendByteString(hs *handleState, s []byte, quote bool) {
+func (h *Handler) appendByteString(hs *handleState, ss *stylecache.StringStyle, s []byte, quote bool) {
 	if quote {
 		if bytes.Equal(s, []byte("null")) {
-			hs.buf.AppendString(h.tc.QuotedNull)
+			hs.buf.AppendString(ss.Null)
 		} else {
-			h.appendAutoQuotedByteString(hs, s)
+			h.appendAutoQuotedByteString(hs, ss, s)
 		}
 	} else {
 		hs.buf.AppendBytes(s)
 	}
 }
 
-func (h *Handler) appendAutoQuotedString(hs *handleState, v string) {
+func (h *Handler) appendAutoQuotedString(hs *handleState, ss *stylecache.StringStyle, v string) {
 	switch {
 	case len(v) == 0:
-		hs.buf.AppendString(h.tc.QuadQuote)
+		hs.buf.AppendString(ss.Empty)
 	case quoting.StringValueContext().IsNeeded(v):
-		h.appendQuotedString(hs, v)
+		h.appendQuotedString(hs, ss, v)
 	default:
 		hs.buf.AppendString(v)
 	}
 }
 
-func (h *Handler) appendQuotedString(hs *handleState, v string) {
-	hs.buf.AppendString(h.tc.DoubleQuote)
-	h.appendEscapedString(hs, v)
-	hs.buf.AppendString(h.tc.DoubleQuote)
+func (h *Handler) appendUnquotedString(hs *handleState, ss *stylecache.StringStyle, v string) {
+	hs.buf.AppendString(ss.Unquoted.Prefix)
+	hs.buf.AppendString(v)
+	hs.buf.AppendString(ss.Unquoted.Suffix)
 }
 
-func (h *Handler) appendAutoQuotedByteString(hs *handleState, v []byte) {
+func (h *Handler) appendQuotedString(hs *handleState, ss *stylecache.StringStyle, v string) {
+	hs.buf.AppendString(ss.Quoted.Prefix)
+	h.appendEscapedString(hs, ss, v)
+	hs.buf.AppendString(ss.Quoted.Suffix)
+}
+
+func (h *Handler) appendAutoQuotedByteString(hs *handleState, ss *stylecache.StringStyle, v []byte) {
 	switch {
 	case len(v) == 0:
-		hs.buf.AppendString(h.tc.QuadQuote)
+		hs.buf.AppendString(ss.Empty)
 	case quoting.StringValueContext().IsNeededBytes(v):
-		h.appendQuotedByteString(hs, v)
+		h.appendQuotedByteString(hs, ss, v)
 	default:
 		hs.buf.AppendBytes(v)
 	}
 }
 
-func (h *Handler) appendQuotedByteString(hs *handleState, v []byte) {
-	hs.buf.AppendString(h.tc.DoubleQuote)
-	h.appendEscapedByteString(hs, v)
-	hs.buf.AppendString(h.tc.DoubleQuote)
+func (h *Handler) appendQuotedByteString(hs *handleState, ss *stylecache.StringStyle, v []byte) {
+	hs.buf.AppendString(ss.Quoted.Prefix)
+	h.appendEscapedByteString(hs, ss, v)
+	hs.buf.AppendString(ss.Quoted.Suffix)
 }
 
-func (h *Handler) appendEscapedString(hs *handleState, s string) {
+func (h *Handler) appendEscapedString(hs *handleState, ss *stylecache.StringStyle, s string) {
 	p := 0
 
 	for i := 0; i < len(s); {
@@ -510,21 +507,21 @@ func (h *Handler) appendEscapedString(hs *handleState, s string) {
 			hs.buf.AppendString(s[p:i])
 			switch c {
 			case '\t':
-				hs.buf.AppendString(h.tc.EscTab)
+				hs.buf.AppendString(ss.Escape.Tab)
 			case '\r':
-				hs.buf.AppendString(h.tc.EscCR)
+				hs.buf.AppendString(ss.Escape.CR)
 			case '\n':
-				hs.buf.AppendString(h.tc.EscLF)
+				hs.buf.AppendString(ss.Escape.LF)
 			case '\\':
-				hs.buf.AppendString(h.tc.EscBackslash)
+				hs.buf.AppendString(ss.Escape.Backslash)
 			case '"':
-				hs.buf.AppendString(h.tc.EscQuote)
+				hs.buf.AppendString(ss.Escape.Quote)
 			default:
-				hs.buf.AppendString(h.theme.StringEscape.Prefix)
+				hs.buf.AppendString(ss.Escape.Style.Prefix)
 				hs.buf.AppendString(`\u00`)
 				hs.buf.AppendByte(hexDigits[c>>4])
 				hs.buf.AppendByte(hexDigits[c&0xf])
-				hs.buf.AppendString(h.theme.StringEscape.Suffix)
+				hs.buf.AppendString(ss.Escape.Style.Suffix)
 			}
 			i++
 			p = i
@@ -533,9 +530,9 @@ func (h *Handler) appendEscapedString(hs *handleState, s string) {
 			v, wd := utf8.DecodeRuneInString(s[i:])
 			if v == utf8.RuneError && wd == 1 {
 				hs.buf.AppendString(s[p:i])
-				hs.buf.AppendString(h.theme.StringEscape.Prefix)
+				hs.buf.AppendString(ss.Escape.Style.Prefix)
 				hs.buf.AppendString(`\ufffd`)
-				hs.buf.AppendString(h.theme.StringEscape.Suffix)
+				hs.buf.AppendString(ss.Escape.Style.Suffix)
 				i++
 				p = i
 			} else {
@@ -547,7 +544,7 @@ func (h *Handler) appendEscapedString(hs *handleState, s string) {
 	hs.buf.AppendString(s[p:])
 }
 
-func (h *Handler) appendEscapedByteString(hs *handleState, s []byte) {
+func (h *Handler) appendEscapedByteString(hs *handleState, ss *stylecache.StringStyle, s []byte) {
 	p := 0
 
 	for i := 0; i < len(s); {
@@ -560,21 +557,21 @@ func (h *Handler) appendEscapedByteString(hs *handleState, s []byte) {
 			hs.buf.AppendBytes(s[p:i])
 			switch c {
 			case '\t':
-				hs.buf.AppendString(h.tc.EscTab)
+				hs.buf.AppendString(ss.Escape.Tab)
 			case '\r':
-				hs.buf.AppendString(h.tc.EscCR)
+				hs.buf.AppendString(ss.Escape.CR)
 			case '\n':
-				hs.buf.AppendString(h.tc.EscLF)
+				hs.buf.AppendString(ss.Escape.LF)
 			case '\\':
-				hs.buf.AppendString(h.tc.EscBackslash)
+				hs.buf.AppendString(ss.Escape.Backslash)
 			case '"':
-				hs.buf.AppendString(h.tc.EscQuote)
+				hs.buf.AppendString(ss.Escape.Quote)
 			default:
-				hs.buf.AppendString(h.theme.StringEscape.Prefix)
+				hs.buf.AppendString(ss.Escape.Style.Prefix)
 				hs.buf.AppendString(`\u00`)
 				hs.buf.AppendByte(hexDigits[c>>4])
 				hs.buf.AppendByte(hexDigits[c&0xf])
-				hs.buf.AppendString(h.theme.StringEscape.Suffix)
+				hs.buf.AppendString(ss.Escape.Style.Suffix)
 			}
 			i++
 			p = i
@@ -583,9 +580,9 @@ func (h *Handler) appendEscapedByteString(hs *handleState, s []byte) {
 			v, wd := utf8.DecodeRune(s[i:])
 			if v == utf8.RuneError && wd == 1 {
 				hs.buf.AppendBytes(s[p:i])
-				hs.buf.AppendString(h.theme.StringEscape.Prefix)
+				hs.buf.AppendString(ss.Escape.Style.Prefix)
 				hs.buf.AppendString(`\ufffd`)
-				hs.buf.AppendString(h.theme.StringEscape.Suffix)
+				hs.buf.AppendString(ss.Escape.Style.Suffix)
 				i++
 				p = i
 			} else {
@@ -605,7 +602,7 @@ func (h *Handler) appendLevel(hs *handleState, level slog.Level) {
 	if h.levelOffset {
 		h.appendLevelWithOffset(hs, level)
 	} else {
-		hs.buf.AppendString(h.tc.LevelLabel[levelIndex(level)])
+		hs.buf.AppendString(h.stc.LevelLabel[levelIndex(level)])
 	}
 }
 
@@ -627,15 +624,15 @@ func (h *Handler) appendLevelWithOffset(hs *handleState, level slog.Level) {
 	}
 
 	i := levelIndex(level)
-	hs.buf.AppendString(h.tc.Level[i].prefix)
+	hs.buf.AppendString(h.stc.LevelValue[i].Prefix)
 	offset := int64(level - levels[i])
 	if offset != 0 {
-		hs.buf.AppendString(levelLabels[i][:1])
+		hs.buf.AppendString(h.stc.Config.LevelLabels[i][:1])
 		appendOffset(offset)
 	} else {
-		hs.buf.AppendString(levelLabels[i])
+		hs.buf.AppendString(h.stc.Config.LevelLabels[i])
 	}
-	hs.buf.AppendString(h.tc.Level[i].suffix)
+	hs.buf.AppendString(h.stc.LevelValue[i].Suffix)
 }
 
 func (h *Handler) appendLevelValue(hs *handleState, level slog.Level) {
@@ -649,10 +646,10 @@ func (h *Handler) appendLevelValue(hs *handleState, level slog.Level) {
 	}
 
 	i := levelIndex(level)
-	hs.buf.AppendString(h.theme.LevelValue[i].Prefix)
-	hs.buf.AppendString(levelNames[i])
+	hs.buf.AppendString(h.stc.LevelValue[i].Prefix)
+	hs.buf.AppendString(h.stc.Config.LevelNames[i])
 	appendOffset(int64(level - levels[i]))
-	hs.buf.AppendString(h.theme.LevelValue[i].Suffix)
+	hs.buf.AppendString(h.stc.LevelValue[i].Suffix)
 }
 
 func (h *Handler) source(pc uintptr) slog.Source {
@@ -667,128 +664,27 @@ func (h *Handler) source(pc uintptr) slog.Source {
 }
 
 func (h *Handler) appendEncodeError(hs *handleState, err error) {
-	h.tc.EvalError.apply(hs, func() {
-		h.appendQuotedString(hs, err.Error())
-	})
+	hs.buf.AppendString(h.stc.EvalError.Prefix)
+	h.appendQuotedString(hs, &h.stc.ErrorValue, err.Error())
+	hs.buf.AppendString(h.stc.EvalError.Suffix)
 }
 
 func (h *Handler) appendEncodePanic(hs *handleState, p any) {
 	hs.scratch.Reset()
 	_, _ = fmt.Fprintf(&hs.scratch, "%v", p)
 
-	h.tc.EvalPanic.apply(hs, func() {
-		h.appendQuotedByteString(hs, hs.scratch)
-	})
+	hs.buf.AppendString(h.stc.EvalError.Prefix)
+	h.appendQuotedByteString(hs, &h.stc.ErrorValue, hs.scratch)
+	hs.buf.AppendString(h.stc.EvalError.Suffix)
 }
 
 // ---
 
 type shared struct {
 	options
-	tc     themeCache
+	stc    stylecache.StyleCache
 	mu     sync.Mutex
 	writer io.Writer
-}
-
-// ---
-
-func newStyleCache(theme *Theme) styleCache {
-	sc := styleCache{
-		Source:    styleFromTheme(theme.Source).withTrailingSpace(),
-		Timestamp: styleFromTheme(theme.Time).withTrailingSpace(),
-		Key:       styleFromTheme(theme.Key).withExtraSuffix(theme.KeyValueSep.Prefix + "=" + theme.KeyValueSep.Suffix),
-		Message:   styleFromTheme(theme.Message).withTrailingSpace(),
-		String:    styleFromTheme(theme.StringValue),
-		Quote:     styleFromTheme(theme.StringQuote),
-		Escape:    styleFromTheme(theme.StringEscape),
-		Number:    styleFromTheme(theme.NumberValue),
-		Bool:      styleFromTheme(theme.BoolValue),
-		Error:     styleFromTheme(theme.ErrorValue),
-		Duration:  styleFromTheme(theme.DurationValue),
-		Time:      styleFromTheme(theme.TimeValue),
-		EvalError: newStyle(styleFromTheme(theme.Unresolved.Begin).render("$!(ERROR: "), styleFromTheme(theme.Unresolved.End).render(")")),
-		EvalPanic: newStyle(styleFromTheme(theme.Unresolved.Begin).render("$!(PANIC: "), styleFromTheme(theme.Unresolved.End).render(")")),
-		Array:     newStyle(styleFromTheme(theme.Array.Begin).render("["), styleFromTheme(theme.Array.End).render("]")),
-		Map:       newStyle(styleFromTheme(theme.Map.Begin).render("{"), styleFromTheme(theme.Map.End).render("}")),
-	}
-
-	quote := sc.Quote.render(`"`)
-	sc.QuotedString.set(sc.String.prefix+quote, quote+sc.String.suffix)
-
-	for i := 0; i < NumLevels; i++ {
-		sc.Level[i] = styleFromTheme(theme.Level[i]).withTrailingSpace()
-	}
-
-	return sc
-}
-
-type styleCache struct {
-	Source       style
-	Timestamp    style
-	Key          style
-	Message      style
-	String       style
-	QuotedString style
-	Quote        style
-	Escape       style
-	Number       style
-	Bool         style
-	Error        style
-	Duration     style
-	Time         style
-	EvalError    style
-	EvalPanic    style
-	Array        style
-	Map          style
-	Level        [NumLevels]style
-}
-
-// ---
-
-func newThemeCache(theme *Theme) themeCache {
-	sc := newStyleCache(theme)
-	tc := themeCache{
-		styleCache: sc,
-	}
-
-	tc.DoubleQuote = tc.Quote.render(`"`)
-	tc.QuadQuote = tc.Quote.render(`""`)
-	tc.QuotedNull = tc.QuotedString.render("null")
-	tc.EscTab = tc.Escape.render(`\t`)
-	tc.EscCR = tc.Escape.render(`\r`)
-	tc.EscLF = tc.Escape.render(`\n`)
-	tc.EscBackslash = tc.Escape.render(`\`) + `\`
-	tc.EscQuote = tc.Escape.render(`\`) + `"`
-	tc.ArraySep = styleFromTheme(theme.Array.Sep).render(",")
-	tc.MapPairSep = styleFromTheme(theme.Map.PairSep).render(",")
-	tc.MapKeyValueSep = styleFromTheme(theme.Map.KeyValueSep).render(":")
-	tc.EmptyArray = strings.TrimSpace(sc.Array.prefix) + strings.TrimSpace(sc.Array.suffix)
-	tc.EmptyMap = strings.TrimSpace(sc.Map.prefix) + strings.TrimSpace(sc.Map.suffix)
-	tc.Null = styleFromTheme(theme.NullValue).render("null")
-	for i := 0; i < 4; i++ {
-		tc.LevelLabel[i] = styleFromTheme(theme.Level[i]).withTrailingSpace().render(levelLabels[i])
-	}
-
-	return tc
-}
-
-type themeCache struct {
-	styleCache
-	DoubleQuote    string
-	QuadQuote      string
-	QuotedNull     string
-	EscTab         string
-	EscCR          string
-	EscLF          string
-	EscBackslash   string
-	EscQuote       string
-	LevelLabel     [NumLevels]string
-	EmptyArray     string
-	ArraySep       string
-	EmptyMap       string
-	MapPairSep     string
-	MapKeyValueSep string
-	Null           string
 }
 
 // ---
@@ -858,60 +754,6 @@ func (g groups) fork() groups {
 
 // ---
 
-func newStyle(prefix, suffix string) style {
-	return style{prefix, suffix, prefix == "" && suffix == ""}
-}
-
-func styleFromTheme(item ThemeItem) style {
-	return style{item.Prefix, item.Suffix, item.IsEmpty()}
-}
-
-type style struct {
-	prefix string
-	suffix string
-	empty  bool
-}
-
-func (s *style) set(prefix, suffix string) {
-	s.prefix = prefix
-	s.suffix = suffix
-	s.empty = prefix == "" && suffix == ""
-}
-
-func (s style) withTrailingSpace() style {
-	return s.withExtraSuffix(" ")
-}
-
-func (s style) withExtraSuffix(suffix string) style {
-	s.set(s.prefix, s.suffix+suffix)
-
-	return s
-}
-
-func (s *style) open(hs *handleState) {
-	hs.buf.AppendString(s.prefix)
-}
-
-func (s *style) close(hs *handleState) {
-	hs.buf.AppendString(s.suffix)
-}
-
-func (s *style) apply(hs *handleState, appendValue func()) {
-	if s.empty {
-		appendValue()
-	} else {
-		s.open(hs)
-		appendValue()
-		s.close(hs)
-	}
-}
-
-func (s style) render(inner string) string {
-	return s.prefix + inner + s.suffix
-}
-
-// ---
-
 func safeResolveValue[T any](h *Handler, hs *handleState, resolve func() T) (_ T, ok bool) {
 	defer func() {
 		if p := recover(); p != nil {
@@ -955,17 +797,16 @@ type cache struct {
 
 // ---
 
-var levelLabels = [NumLevels]string{"DBG", "INF", "WRN", "ERR"}
-var levelNames = [NumLevels]string{"DEBUG", "INFO", "WARN", "ERROR"}
-var levels = [NumLevels]slog.Level{slog.LevelDebug, slog.LevelInfo, slog.LevelWarn, slog.LevelError}
+var levels = [numLevels]slog.Level{slog.LevelDebug, slog.LevelInfo, slog.LevelWarn, slog.LevelError}
 
 func levelIndex(level slog.Level) int {
-	return min(max(0, (int(level)+4)/4), NumLevels-1)
+	return min(max(0, (int(level)+4)/4), numLevels-1)
 }
 
 // ---
 
 const hexDigits = "0123456789abcdef"
+const numLevels = themes.NumLevels
 const numEmbeddedGroups = 4
 
 var _ slog.Handler = (*Handler)(nil)

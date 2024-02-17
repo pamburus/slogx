@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/pamburus/slogx/slogtext"
+	"github.com/pamburus/slogx/slogtext/themes"
 )
 
 func BenchmarkHandler(b *testing.B) {
@@ -120,13 +121,13 @@ func BenchmarkHandler(b *testing.B) {
 			return func(b *testing.B) {
 				b.Run("WithColor", test(
 					slogtext.NewHandler(io.Discard, append(options,
-						slogtext.WithTheme(slogtext.ThemeTint()),
+						slogtext.WithTheme(themes.Tint()),
 						slogtext.WithColor(slogtext.ColorAlways),
 					)...),
 				))
 				b.Run("WithoutColor", test(
 					slogtext.NewHandler(io.Discard, append(options,
-						slogtext.WithTheme(slogtext.ThemeTint()),
+						slogtext.WithTheme(themes.Tint()),
 						slogtext.WithColor(slogtext.ColorNever),
 					)...),
 				))

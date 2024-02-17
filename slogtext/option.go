@@ -3,6 +3,8 @@ package slogtext
 import (
 	"log/slog"
 	"time"
+
+	"github.com/pamburus/slogx/slogtext/themes"
 )
 
 // Option is a configuration option for the Handler.
@@ -141,7 +143,7 @@ func defaultOptions() options {
 		encodeTimeValue: timeLayout(time.StampMilli),
 		encodeDuration:  DurationAsSeconds(),
 		encodeSource:    SourceShort(),
-		theme:           ThemeDefault(),
+		theme:           themes.Default(),
 	}
 }
 
