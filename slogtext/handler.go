@@ -99,6 +99,18 @@ func (h *Handler) Handle(ctx context.Context, record slog.Record) error {
 
 	h.appendLevel(hs, record.Level)
 
+	if replace != nil {
+		if attr := replace(nil, slog.String(slog.MessageKey, record.Message)); attr.Key != "" {
+			switch {
+			case attr.Value.Kind() == slog.KindString:
+				record.Message = attr.Value.String()
+			default:
+				record.Message = ""
+				h.appendValue(hs, attr.Value, false)
+			}
+		}
+	}
+
 	if record.Message != "" {
 		if quoting.MessageContext().IsNeeded(record.Message) {
 			h.appendQuotedString(hs, &h.stc.Message, record.Message)
