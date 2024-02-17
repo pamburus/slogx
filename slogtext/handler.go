@@ -564,7 +564,40 @@ func (h *Handler) appendSource(hs *handleState, source slog.Source) {
 }
 
 func (h *Handler) appendLevel(hs *handleState, level slog.Level) {
-	hs.buf.AppendString(h.styledLevel[levelIndex(level)])
+	if h.levelOffset {
+		h.appendLevelWithOffset(hs, level)
+	} else {
+		hs.buf.AppendString(h.styledLevel[levelIndex(level)])
+	}
+}
+
+func (h *Handler) appendLevelWithOffset(hs *handleState, level slog.Level) {
+	appendOffset := func(offset int64) {
+		switch {
+		case offset > 9:
+			hs.buf.AppendByte('+')
+			hs.buf.AppendByte('~')
+		case offset < -9:
+			hs.buf.AppendByte('-')
+			hs.buf.AppendByte('~')
+		case offset >= 0:
+			hs.buf.AppendByte('+')
+			fallthrough
+		default:
+			hs.buf.AppendInt(offset)
+		}
+	}
+
+	i := levelIndex(level)
+	hs.buf.AppendString(h.styleLevel[i].prefix)
+	offset := int64(level - levels[i])
+	if offset != 0 {
+		hs.buf.AppendString(levelLabels[i][:1])
+		appendOffset(offset)
+	} else {
+		hs.buf.AppendString(levelLabels[i])
+	}
+	hs.buf.AppendString(h.styleLevel[i].suffix)
 }
 
 func (h *Handler) appendLevelValue(hs *handleState, level slog.Level) {
@@ -653,6 +686,7 @@ func newThemeCache(theme *Theme) themeCache {
 	tc.styleQuotedString.set(tc.styleString.prefix+tc.styledDoubleQuote, tc.styledDoubleQuote+tc.styleString.suffix)
 	for i := 0; i < 4; i++ {
 		tc.styledLevel[i] = newStyle(theme.Level[i]).withTrailingSpace().render(levelLabels[i])
+		tc.styleLevel[i] = newStyle(theme.Level[i]).withTrailingSpace()
 	}
 
 	return tc
@@ -676,6 +710,7 @@ type themeCache struct {
 	styleEncodeError   style
 	styleEncodePanic   style
 	styleArray         style
+	styleLevel         [4]style
 	styledDoubleQuote  string
 	styledQuadQuote    string
 	styledQuotedNull   string

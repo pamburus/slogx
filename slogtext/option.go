@@ -74,6 +74,13 @@ func WithBytesFormat(f BytesFormat) Option {
 	}
 }
 
+// WithLevelOffset sets whether to include the level offset in the log message.
+func WithLevelOffset(enabled bool) Option {
+	return func(o *options) {
+		o.levelOffset = enabled
+	}
+}
+
 // ---
 
 // ColorSetting is a setting for the color output.
@@ -121,6 +128,7 @@ type options struct {
 	encodeDuration  DurationEncodeFunc
 	encodeSource    SourceEncodeFunc
 	includeSource   bool
+	levelOffset     bool
 	bytesFormat     BytesFormat
 	theme           Theme
 }

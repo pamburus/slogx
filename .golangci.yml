@@ -44,7 +44,6 @@ linters:
     - ineffassign
     - misspell
     - nakedret
-    - nlreturn
     - prealloc
     - revive
     - staticcheck
