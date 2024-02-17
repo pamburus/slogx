@@ -77,9 +77,10 @@ func (h *Handler) Handle(ctx context.Context, record slog.Record) error {
 		return nil
 	}
 
-	hs := newHandleState(ctx, h)
+	hs := newHandleState(ctx)
 	defer hs.release()
 
+	hs.groups = h.groupKeys.collect(hs.groups)
 	replace := h.replaceAttr
 
 	if !record.Time.IsZero() {
@@ -171,8 +172,19 @@ func (h *Handler) WithGroup(key string) slog.Handler {
 
 	h = h.fork()
 
+	keyAddon := key
+	if quoting.KeyContext().IsNeeded(key) {
+		hs := newHandleState(context.Background())
+		defer hs.release()
+
+		hs.buf.AppendString(h.stc.Key.Unquoted.Suffix)
+		h.appendQuotedString(hs, &h.stc.Key, key)
+		hs.buf.AppendString(h.stc.Key.Unquoted.Prefix)
+		keyAddon = string(hs.buf)
+	}
+
 	prefixLen := len(h.keyPrefix)
-	h.keyPrefix += key + "."
+	h.keyPrefix += keyAddon + "."
 	h.groups.append(group{len(h.attrs), prefixLen})
 	h.groupKeys.append(key)
 
@@ -284,6 +296,7 @@ func (h *Handler) appendAttr(hs *handleState, attr slog.Attr, basePrefixLen int)
 		}
 	} else {
 		h.appendKey(hs, attr.Key, basePrefixLen)
+		hs.buf.AppendString(h.stc.KeyValueSep)
 		h.appendValue(hs, attr.Value, true)
 		hs.buf.AppendByte(' ')
 	}
@@ -293,7 +306,13 @@ func (h *Handler) appendKey(hs *handleState, key string, basePrefixLen int) {
 	hs.buf.AppendString(h.stc.Key.Unquoted.Prefix)
 	hs.buf.AppendString(h.keyPrefix[:basePrefixLen])
 	hs.buf.AppendBytes(hs.keyPrefix)
-	hs.buf.AppendString(key)
+	if quoting.MessageContext().IsNeeded(key) {
+		hs.buf.AppendString(h.stc.Key.Unquoted.Suffix)
+		h.appendQuotedString(hs, &h.stc.Key, key)
+		hs.buf.AppendString(h.stc.Key.Unquoted.Prefix)
+	} else {
+		hs.buf.AppendString(key)
+	}
 	hs.buf.AppendString(h.stc.Key.Unquoted.Suffix)
 }
 

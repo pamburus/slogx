@@ -12,6 +12,14 @@ func MessageContext() Context {
 	}
 }
 
+// KeyContext returns the quoting context for attribute keys.
+func KeyContext() Context {
+	return Context{
+		needed:           &keyQuoteSetV,
+		neededForNumbers: false,
+	}
+}
+
 // StringValueContext returns the quoting context for string values.
 func StringValueContext() Context {
 	return Context{
@@ -105,6 +113,13 @@ func isDigit(r rune) bool {
 	return r >= '0' && r <= '9'
 }
 
+func keyQuoteSet() [utf8.RuneSelf]bool {
+	needed := defaultQuoteSet()
+	needed['='] = true
+
+	return needed
+}
+
 func messageQuoteSet() [utf8.RuneSelf]bool {
 	needed := defaultQuoteSet()
 	needed['='] = true
@@ -137,6 +152,7 @@ func defaultQuoteSet() [utf8.RuneSelf]bool {
 }
 
 var (
+	keyQuoteSetV         = keyQuoteSet()
 	messageQuoteSetV     = messageQuoteSet()
 	stringValueQuoteSetV = stringValueQuoteSet()
 )

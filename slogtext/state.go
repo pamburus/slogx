@@ -7,10 +7,9 @@ import (
 
 // ---
 
-func newHandleState(ctx context.Context, h *Handler) *handleState {
+func newHandleState(ctx context.Context) *handleState {
 	s := handleStatePool.Get().(*handleState)
 	s.ctx = ctx
-	s.groups = h.groupKeys.collect(s.groups)
 
 	return s
 }
