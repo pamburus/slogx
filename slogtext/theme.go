@@ -14,8 +14,8 @@ func ThemeDefault() Theme {
 	level := [NumLevels]ThemeItem{
 		{Prefix: "\x1b[2m|\x1b[0;35m", Suffix: "\x1b[0;2m|\x1b[m"},
 		{Prefix: "\x1b[2m|\x1b[0;36m", Suffix: "\x1b[0;2m|\x1b[m"},
-		{Prefix: "\x1b[2m|\x1b[0;93m", Suffix: "\x1b[0;2m|\x1b[m"},
-		{Prefix: "\x1b[2m|\x1b[0;91m", Suffix: "\x1b[0;2m|\x1b[m"},
+		{Prefix: "\x1b[7;93m|", Suffix: "|\x1b[m"},
+		{Prefix: "\x1b[7;91m|", Suffix: "|\x1b[m"},
 	}
 	levelValue := [NumLevels]ThemeItem{
 		{Prefix: "\x1b[35m", Suffix: "\x1b[m"},
