@@ -5,6 +5,8 @@ import (
 	"bytes"
 	"context"
 	"encoding"
+	"encoding/base64"
+	"encoding/hex"
 	"fmt"
 	"io"
 	"log/slog"
@@ -340,6 +342,12 @@ func (h *Handler) appendValue(hs *handleState, v slog.Value, quote bool) {
 			h.styleNull.apply(hs, func() {
 				hs.buf.AppendString("null")
 			})
+		case slog.Level:
+			h.appendLevelValue(hs, v)
+		case error:
+			h.styleError.apply(hs, func() {
+				h.appendString(hs, v.Error(), quote)
+			})
 		case fmt.Stringer:
 			if v, ok := safeResolveValue(h, hs, v.String); ok {
 				h.appendString(hs, v, quote)
@@ -348,23 +356,34 @@ func (h *Handler) appendValue(hs *handleState, v slog.Value, quote bool) {
 			if data, ok := safeResolveValueErr(h, hs, v.MarshalText); ok {
 				h.appendByteString(hs, data, quote)
 			}
-		case error:
-			h.styleError.apply(hs, func() {
-				h.appendString(hs, v.Error(), quote)
-			})
-		case slog.Level:
-			h.appendLevelValue(hs, v)
 		case *slog.Source:
 			h.appendSource(hs, *v)
 		case slog.Source:
 			h.appendSource(hs, v)
 		case []byte:
-			hs.buf.AppendString(h.styleString.prefix)
-			h.appendByteString(hs, v, quote)
-			hs.buf.AppendString(h.styleString.suffix)
+			h.appendBytesValue(hs, v, quote)
 		default:
 			h.appendAnyValue(hs, v, quote)
 		}
+	}
+}
+
+func (h *Handler) appendBytesValue(hs *handleState, v []byte, quote bool) {
+	switch h.bytesFormat {
+	default:
+		fallthrough
+	case BytesFormatString:
+		hs.buf.AppendString(h.styleString.prefix)
+		h.appendByteString(hs, v, quote)
+		hs.buf.AppendString(h.styleString.suffix)
+	case BytesFormatHex:
+		hs.buf.AppendString(h.styleQuotedString.prefix)
+		hex.Encode(hs.buf.Extend(hex.EncodedLen(len(v))), v)
+		hs.buf.AppendString(h.styleQuotedString.suffix)
+	case BytesFormatBase64:
+		hs.buf.AppendString(h.styleQuotedString.prefix)
+		base64.StdEncoding.Encode(hs.buf.Extend(base64.StdEncoding.EncodedLen(len(v))), v)
+		hs.buf.AppendString(h.styleQuotedString.suffix)
 	}
 }
 
@@ -470,8 +489,8 @@ func (h *Handler) appendEscapedString(hs *handleState, s string) {
 			default:
 				hs.buf.AppendString(h.theme.Escape.Prefix)
 				hs.buf.AppendString(`\u00`)
-				hs.buf.AppendByte(hex[c>>4])
-				hs.buf.AppendByte(hex[c&0xf])
+				hs.buf.AppendByte(hexDigits[c>>4])
+				hs.buf.AppendByte(hexDigits[c&0xf])
 				hs.buf.AppendString(h.theme.Escape.Suffix)
 			}
 			i++
@@ -520,8 +539,8 @@ func (h *Handler) appendEscapedByteString(hs *handleState, s []byte) {
 			default:
 				hs.buf.AppendString(h.theme.Escape.Prefix)
 				hs.buf.AppendString(`\u00`)
-				hs.buf.AppendByte(hex[c>>4])
-				hs.buf.AppendByte(hex[c&0xf])
+				hs.buf.AppendByte(hexDigits[c>>4])
+				hs.buf.AppendByte(hexDigits[c&0xf])
 				hs.buf.AppendString(h.theme.Escape.Suffix)
 			}
 			i++
@@ -659,6 +678,9 @@ func newThemeCache(theme *Theme) themeCache {
 	tc.styledEscLF = tc.styleEscape.prefix + `\n` + tc.styleEscape.suffix
 	tc.styledEscBackslash = tc.styleEscape.prefix + `\` + tc.styleEscape.suffix + `\`
 	tc.styledEscQuote = tc.styleEscape.prefix + `\` + tc.styleEscape.suffix + `"`
+	tc.styleQuotedString.prefix = tc.styleString.prefix + tc.styledDoubleQuote
+	tc.styleQuotedString.suffix = tc.styledDoubleQuote + tc.styleString.suffix
+	tc.styleQuotedString.empty = tc.styleQuotedString.prefix == "" && tc.styleQuotedString.suffix == ""
 
 	return tc
 }
@@ -669,6 +691,7 @@ type themeCache struct {
 	styleKey           style
 	styleMessage       style
 	styleString        style
+	styleQuotedString  style
 	styleQuote         style
 	styleEscape        style
 	styleNumber        style
@@ -837,6 +860,6 @@ type cache struct {
 
 // ---
 
-const hex = "0123456789abcdef"
+const hexDigits = "0123456789abcdef"
 
 var _ slog.Handler = (*Handler)(nil)

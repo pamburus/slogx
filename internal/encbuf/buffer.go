@@ -35,6 +35,13 @@ func (b *Buffer) Grow(n int) {
 	*b = slices.Grow(*b, n)
 }
 
+// Extend increases the slice's length by n and returns the extended part.
+func (b *Buffer) Extend(n int) []byte {
+	*b = append(*b, make([]byte, n)...)
+
+	return (*b)[len(*b)-n:]
+}
+
 // AppendString appends a string to the Buffer.
 func (b *Buffer) AppendString(data string) {
 	*b = append(*b, data...)

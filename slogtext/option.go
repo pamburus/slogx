@@ -67,6 +67,13 @@ func WithTimeValueEncodeFunc(f TimeEncodeFunc) Option {
 	}
 }
 
+// WithBytesFormat sets the bytes format for the Handler.
+func WithBytesFormat(f BytesFormat) Option {
+	return func(o *options) {
+		o.bytesFormat = f
+	}
+}
+
 // ---
 
 // ColorSetting is a setting for the color output.
@@ -76,6 +83,17 @@ const (
 	ColorAuto   ColorSetting = iota // ColorAuto enables color output if the output is a terminal.
 	ColorNever                      // ColorNever disables color output.
 	ColorAlways                     // ColorAlways enables color output.
+)
+
+// ---
+
+// BytesFormat is a format for the bytes output.
+type BytesFormat int
+
+const (
+	BytesFormatString = iota // BytesFormatString outputs the bytes as a string.
+	BytesFormatHex           // BytesFormatHex outputs the bytes as a hex string.
+	BytesFormatBase64        // BytesFormatBase64 outputs the bytes as a base64 string.
 )
 
 // ---
@@ -103,6 +121,7 @@ type options struct {
 	encodeDuration  DurationEncodeFunc
 	encodeSource    SourceEncodeFunc
 	includeSource   bool
+	bytesFormat     BytesFormat
 	theme           Theme
 }
 
