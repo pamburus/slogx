@@ -467,7 +467,7 @@ func (h *Handler) appendAutoQuotedString(hs *handleState, v string) {
 	switch {
 	case len(v) == 0:
 		hs.buf.AppendString(h.tc.QuadQuote)
-	case quoting.IsNeeded(v):
+	case quoting.StringValueContext().IsNeeded(v):
 		h.appendQuotedString(hs, v)
 	default:
 		hs.buf.AppendString(v)
@@ -484,7 +484,7 @@ func (h *Handler) appendAutoQuotedByteString(hs *handleState, v []byte) {
 	switch {
 	case len(v) == 0:
 		hs.buf.AppendString(h.tc.QuadQuote)
-	case quoting.IsNeededForBytes(v):
+	case quoting.StringValueContext().IsNeededBytes(v):
 		h.appendQuotedByteString(hs, v)
 	default:
 		hs.buf.AppendBytes(v)
