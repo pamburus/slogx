@@ -80,14 +80,14 @@ func (h *Handler) Handle(ctx context.Context, record slog.Record) error {
 	hs := newHandleState(ctx, h)
 	defer hs.release()
 
-	rep := h.replaceAttr
+	replace := h.replaceAttr
 
 	if !record.Time.IsZero() {
 		val := record.Time.Round(0)
 		h.styleTimestamp.open(hs)
-		if rep == nil {
+		if replace == nil {
 			h.appendTimestamp(hs, record.Time)
-		} else if attr := rep(nil, slog.Time(slog.TimeKey, val)); attr.Key != "" {
+		} else if attr := replace(nil, slog.Time(slog.TimeKey, val)); attr.Key != "" {
 			if attr.Value.Kind() == slog.KindTime {
 				h.appendTimestamp(hs, attr.Value.Time())
 			} else {
@@ -97,17 +97,13 @@ func (h *Handler) Handle(ctx context.Context, record slog.Record) error {
 		h.styleTimestamp.close(hs)
 	}
 
-	if rep == nil {
-		h.appendLevel(hs, record.Level)
-	} else if attr := rep(nil, slog.Any(slog.LevelKey, record.Level)); attr.Key != "" {
-		h.appendValue(hs, attr.Value, false)
-	}
+	h.appendLevel(hs, record.Level)
 	hs.buf.AppendByte(' ')
 
 	h.styleMessage.open(hs)
-	if rep == nil {
+	if replace == nil {
 		hs.buf.AppendString(record.Message)
-	} else if a := rep(nil, slog.String(slog.MessageKey, record.Message)); a.Key != "" {
+	} else if a := replace(nil, slog.String(slog.MessageKey, record.Message)); a.Key != "" {
 		h.appendValue(hs, a.Value, false)
 	}
 	h.styleMessage.close(hs)
@@ -124,9 +120,9 @@ func (h *Handler) Handle(ctx context.Context, record slog.Record) error {
 		src := h.source(record.PC)
 		if src.File != "" {
 			h.styleSource.open(hs)
-			if rep == nil {
+			if replace == nil {
 				h.appendSource(hs, src)
-			} else if attr := rep(nil, slog.Any(slog.SourceKey, src)); attr.Key != "" {
+			} else if attr := replace(nil, slog.Any(slog.SourceKey, src)); attr.Key != "" {
 				h.appendValue(hs, attr.Value, false)
 			}
 			h.styleSource.close(hs)
@@ -575,40 +571,34 @@ func (h *Handler) appendLevel(hs *handleState, level slog.Level) {
 
 func (h *Handler) appendLevelValue(hs *handleState, level slog.Level) {
 	const (
-		textDebug = "DBG"
-		textInfo  = "INF"
-		textWarn  = "WRN"
-		textError = "ERR"
+		textDebug = "DEBUG"
+		textInfo  = "INFO"
+		textWarn  = "WARN"
+		textError = "ERROR"
 	)
 
+	appendOffset := func(offset int64) {
+		if offset != 0 {
+			if offset > 0 {
+				hs.buf.AppendByte('+')
+			}
+			hs.buf.AppendInt(offset)
+		}
+	}
+
 	switch {
-	case level < slog.LevelDebug:
-		hs.buf.AppendString(textDebug)
-		hs.buf.AppendInt(int64(level - slog.LevelDebug))
-	case level == slog.LevelDebug:
-		hs.buf.AppendString(textDebug)
 	case level < slog.LevelInfo:
 		hs.buf.AppendString(textDebug)
-		hs.buf.AppendByte('+')
-		hs.buf.AppendInt(int64(level - slog.LevelDebug))
-	case level == slog.LevelInfo:
-		hs.buf.AppendString(textInfo)
+		appendOffset(int64(level - slog.LevelDebug))
 	case level < slog.LevelWarn:
 		hs.buf.AppendString(textInfo)
-		hs.buf.AppendByte('+')
-		hs.buf.AppendInt(int64(level - slog.LevelInfo))
-	case level == slog.LevelWarn:
-		hs.buf.AppendString(textWarn)
+		appendOffset(int64(level - slog.LevelInfo))
 	case level < slog.LevelError:
 		hs.buf.AppendString(textWarn)
-		hs.buf.AppendByte('+')
-		hs.buf.AppendInt(int64(level - slog.LevelWarn))
-	case level == slog.LevelError:
-		hs.buf.AppendString(textError)
+		appendOffset(int64(level - slog.LevelWarn))
 	default:
 		hs.buf.AppendString(textError)
-		hs.buf.AppendByte('+')
-		hs.buf.AppendInt(int64(level - slog.LevelError))
+		appendOffset(int64(level - slog.LevelError))
 	}
 }
 
