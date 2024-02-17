@@ -598,113 +598,19 @@ func (h *Handler) appendQuotedByteString(hs *handleState, ss *stylecache.StringS
 }
 
 func (h *Handler) appendEscapedString(hs *handleState, ss *stylecache.StringStyle, s string, breakOnNewLine bool) bool {
-	p := 0
-
-	for i := 0; i < len(s); {
-		c := s[i]
-		switch {
-		case c < utf8.RuneSelf && c >= 0x20 && c != '\\' && c != '"':
-			i++
-
-		case c < utf8.RuneSelf:
-			hs.buf.AppendString(s[p:i])
-			switch c {
-			case '\t':
-				hs.buf.AppendString(ss.Escape.Tab)
-			case '\r':
-				hs.buf.AppendString(ss.Escape.CR)
-			case '\n':
-				hs.buf.AppendString(ss.Escape.LF)
-				if breakOnNewLine && i > int(h.expansionThreshold) {
-					return false
-				}
-			case '\\':
-				hs.buf.AppendString(ss.Escape.Backslash)
-			case '"':
-				hs.buf.AppendString(ss.Escape.Quote)
-			default:
-				hs.buf.AppendString(ss.Escape.Style.Prefix)
-				hs.buf.AppendString(`\u00`)
-				hs.buf.AppendByte(hexDigits[c>>4])
-				hs.buf.AppendByte(hexDigits[c&0xf])
-				hs.buf.AppendString(ss.Escape.Style.Suffix)
-			}
-			i++
-			p = i
-
-		default:
-			v, wd := utf8.DecodeRuneInString(s[i:])
-			if v == utf8.RuneError && wd == 1 {
-				hs.buf.AppendString(s[p:i])
-				hs.buf.AppendString(ss.Escape.Style.Prefix)
-				hs.buf.AppendString(`\ufffd`)
-				hs.buf.AppendString(ss.Escape.Style.Suffix)
-				i++
-				p = i
-			} else {
-				i += wd
-			}
-		}
-	}
-
-	hs.buf.AppendString(s[p:])
-
-	return true
+	return appendEscapedString(hs, ss, s, h.resolveExpansionThreshold(breakOnNewLine), stringAdapterString{})
 }
 
 func (h *Handler) appendEscapedByteString(hs *handleState, ss *stylecache.StringStyle, s []byte, breakOnNewLine bool) bool {
-	p := 0
+	return appendEscapedString(hs, ss, s, h.resolveExpansionThreshold(breakOnNewLine), stringAdapterBytes{})
+}
 
-	for i := 0; i < len(s); {
-		c := s[i]
-		switch {
-		case c < utf8.RuneSelf && c >= 0x20 && c != '\\' && c != '"':
-			i++
-
-		case c < utf8.RuneSelf:
-			hs.buf.AppendBytes(s[p:i])
-			switch c {
-			case '\t':
-				hs.buf.AppendString(ss.Escape.Tab)
-			case '\r':
-				hs.buf.AppendString(ss.Escape.CR)
-			case '\n':
-				hs.buf.AppendString(ss.Escape.LF)
-				if breakOnNewLine && i > int(h.expansionThreshold) {
-					return false
-				}
-			case '\\':
-				hs.buf.AppendString(ss.Escape.Backslash)
-			case '"':
-				hs.buf.AppendString(ss.Escape.Quote)
-			default:
-				hs.buf.AppendString(ss.Escape.Style.Prefix)
-				hs.buf.AppendString(`\u00`)
-				hs.buf.AppendByte(hexDigits[c>>4])
-				hs.buf.AppendByte(hexDigits[c&0xf])
-				hs.buf.AppendString(ss.Escape.Style.Suffix)
-			}
-			i++
-			p = i
-
-		default:
-			v, wd := utf8.DecodeRune(s[i:])
-			if v == utf8.RuneError && wd == 1 {
-				hs.buf.AppendBytes(s[p:i])
-				hs.buf.AppendString(ss.Escape.Style.Prefix)
-				hs.buf.AppendString(`\ufffd`)
-				hs.buf.AppendString(ss.Escape.Style.Suffix)
-				i++
-				p = i
-			} else {
-				i += wd
-			}
-		}
+func (h *Handler) resolveExpansionThreshold(breakOnNewLine bool) int {
+	if !breakOnNewLine {
+		return ExpandNever
 	}
 
-	hs.buf.AppendBytes(s[p:])
-
-	return true
+	return int(h.expansionThreshold)
 }
 
 func (h *Handler) appendSource(hs *handleState, source slog.Source) {
@@ -903,6 +809,92 @@ func safeResolveValueErr[T any](h *Handler, hs *handleState, resolve func() (T, 
 	value, err = resolve()
 
 	return value, err == nil, true
+}
+
+func appendEscapedString[T string | []byte, SA stringAdapter[T]](hs *handleState, ss *stylecache.StringStyle, s T, breakOnNewLineIfOver int, sa SA) bool {
+	p := 0
+
+	for i := 0; i < len(s); {
+		c := s[i]
+		switch {
+		case c < utf8.RuneSelf && c >= 0x20 && c != '\\' && c != '"':
+			i++
+
+		case c < utf8.RuneSelf:
+			sa.appendString(&hs.buf, s[p:i])
+			switch c {
+			case '\t':
+				hs.buf.AppendString(ss.Escape.Tab)
+			case '\r':
+				hs.buf.AppendString(ss.Escape.CR)
+			case '\n':
+				hs.buf.AppendString(ss.Escape.LF)
+				if i > breakOnNewLineIfOver {
+					return false
+				}
+			case '\\':
+				hs.buf.AppendString(ss.Escape.Backslash)
+			case '"':
+				hs.buf.AppendString(ss.Escape.Quote)
+			default:
+				hs.buf.AppendString(ss.Escape.Style.Prefix)
+				hs.buf.AppendString(`\u00`)
+				hs.buf.AppendByte(hexDigits[c>>4])
+				hs.buf.AppendByte(hexDigits[c&0xf])
+				hs.buf.AppendString(ss.Escape.Style.Suffix)
+			}
+			i++
+			p = i
+
+		default:
+			v, wd := sa.decodeRune(s[i:])
+			if v == utf8.RuneError && wd == 1 {
+				sa.appendString(&hs.buf, s[p:i])
+				hs.buf.AppendString(ss.Escape.Style.Prefix)
+				hs.buf.AppendString(`\ufffd`)
+				hs.buf.AppendString(ss.Escape.Style.Suffix)
+				i++
+				p = i
+			} else {
+				i += wd
+			}
+		}
+	}
+
+	sa.appendString(&hs.buf, s[p:])
+
+	return true
+}
+
+// ---
+
+type stringAdapter[T string | []byte] interface {
+	appendString(buf *buffer, s T)
+	decodeRune(s T) (rune, int)
+}
+
+// ---
+
+type stringAdapterString struct{}
+
+func (stringAdapterString) appendString(buf *buffer, s string) {
+	buf.AppendString(s)
+}
+
+func (stringAdapterString) decodeRune(s string) (rune, int) {
+	return utf8.DecodeRuneInString(s)
+}
+
+// ---
+
+type stringAdapterBytes struct{}
+
+func (stringAdapterBytes) appendString(buf *buffer, s []byte) {
+	buf.AppendBytes(s)
+}
+
+func (stringAdapterBytes) decodeRune(s []byte) (rune, int) {
+	return utf8.DecodeRune(s)
 }
 
 // ---
