@@ -598,11 +598,11 @@ func (h *Handler) appendQuotedByteString(hs *handleState, ss *stylecache.StringS
 }
 
 func (h *Handler) appendEscapedString(hs *handleState, ss *stylecache.StringStyle, s string, breakOnNewLine bool) bool {
-	return appendEscapedString(hs, ss, s, h.resolveExpansionThreshold(breakOnNewLine), stringAdapterString{})
+	return newStringAppender(h, hs, ss, h.resolveExpansionThreshold(breakOnNewLine), stringAdapterString{}).appendEscapedString(s)
 }
 
 func (h *Handler) appendEscapedByteString(hs *handleState, ss *stylecache.StringStyle, s []byte, breakOnNewLine bool) bool {
-	return appendEscapedString(hs, ss, s, h.resolveExpansionThreshold(breakOnNewLine), stringAdapterBytes{})
+	return newStringAppender(h, hs, ss, h.resolveExpansionThreshold(breakOnNewLine), stringAdapterBytes{}).appendEscapedString(s)
 }
 
 func (h *Handler) resolveExpansionThreshold(breakOnNewLine bool) int {
@@ -811,7 +811,21 @@ func safeResolveValueErr[T any](h *Handler, hs *handleState, resolve func() (T, 
 	return value, err == nil, true
 }
 
-func appendEscapedString[T string | []byte, SA stringAdapter[T]](hs *handleState, ss *stylecache.StringStyle, s T, breakOnNewLineIfOver int, sa SA) bool {
+// ---
+
+func newStringAppender[T string | []byte, SA stringAdapter[T]](h *Handler, hs *handleState, ss *stylecache.StringStyle, threshold int, sa SA) stringAppender[T, SA] {
+	return stringAppender[T, SA]{h, hs, ss, threshold, sa}
+}
+
+type stringAppender[T string | []byte, SA stringAdapter[T]] struct {
+	h         *Handler
+	hs        *handleState
+	ss        *stylecache.StringStyle
+	threshold int
+	sa        SA
+}
+
+func (a stringAppender[T, SA]) appendEscapedString(s T) bool {
 	p := 0
 
 	for i := 0; i < len(s); {
@@ -821,38 +835,38 @@ func appendEscapedString[T string | []byte, SA stringAdapter[T]](hs *handleState
 			i++
 
 		case c < utf8.RuneSelf:
-			sa.appendString(&hs.buf, s[p:i])
+			a.sa.appendString(&a.hs.buf, s[p:i])
 			switch c {
 			case '\t':
-				hs.buf.AppendString(ss.Escape.Tab)
+				a.hs.buf.AppendString(a.ss.Escape.Tab)
 			case '\r':
-				hs.buf.AppendString(ss.Escape.CR)
+				a.hs.buf.AppendString(a.ss.Escape.CR)
 			case '\n':
-				hs.buf.AppendString(ss.Escape.LF)
-				if i > breakOnNewLineIfOver {
+				a.hs.buf.AppendString(a.ss.Escape.LF)
+				if i > a.threshold {
 					return false
 				}
 			case '\\':
-				hs.buf.AppendString(ss.Escape.Backslash)
+				a.hs.buf.AppendString(a.ss.Escape.Backslash)
 			case '"':
-				hs.buf.AppendString(ss.Escape.Quote)
+				a.hs.buf.AppendString(a.ss.Escape.Quote)
 			default:
-				hs.buf.AppendString(ss.Escape.Style.Prefix)
-				hs.buf.AppendString(`\u00`)
-				hs.buf.AppendByte(hexDigits[c>>4])
-				hs.buf.AppendByte(hexDigits[c&0xf])
-				hs.buf.AppendString(ss.Escape.Style.Suffix)
+				a.hs.buf.AppendString(a.ss.Escape.Style.Prefix)
+				a.hs.buf.AppendString(`\u00`)
+				a.hs.buf.AppendByte(hexDigits[c>>4])
+				a.hs.buf.AppendByte(hexDigits[c&0xf])
+				a.hs.buf.AppendString(a.ss.Escape.Style.Suffix)
 			}
 			i++
 			p = i
 
 		default:
-			v, wd := sa.decodeRune(s[i:])
+			v, wd := a.sa.decodeRune(s[i:])
 			if v == utf8.RuneError && wd == 1 {
-				sa.appendString(&hs.buf, s[p:i])
-				hs.buf.AppendString(ss.Escape.Style.Prefix)
-				hs.buf.AppendString(`\ufffd`)
-				hs.buf.AppendString(ss.Escape.Style.Suffix)
+				a.sa.appendString(&a.hs.buf, s[p:i])
+				a.hs.buf.AppendString(a.ss.Escape.Style.Prefix)
+				a.hs.buf.AppendString(`\ufffd`)
+				a.hs.buf.AppendString(a.ss.Escape.Style.Suffix)
 				i++
 				p = i
 			} else {
@@ -861,7 +875,7 @@ func appendEscapedString[T string | []byte, SA stringAdapter[T]](hs *handleState
 		}
 	}
 
-	sa.appendString(&hs.buf, s[p:])
+	a.sa.appendString(&a.hs.buf, s[p:])
 
 	return true
 }
