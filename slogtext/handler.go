@@ -131,11 +131,7 @@ func (h *Handler) Handle(ctx context.Context, record slog.Record) error {
 		src := h.source(record.PC)
 		if src.File != "" {
 			hs.buf.AppendString(h.stc.Source.Prefix)
-			if replace == nil {
-				h.appendSource(hs, src)
-			} else if attr := replace(nil, slog.Any(slog.SourceKey, src)); attr.Key != "" {
-				h.appendValue(hs, attr.Value, false)
-			}
+			h.appendSource(hs, src)
 			hs.buf.AppendString(h.stc.Source.Suffix)
 		}
 	}
