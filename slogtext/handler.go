@@ -598,11 +598,19 @@ func (h *Handler) appendQuotedByteString(hs *handleState, ss *stylecache.StringS
 }
 
 func (h *Handler) appendEscapedString(hs *handleState, ss *stylecache.StringStyle, s string, breakOnNewLine bool) bool {
-	return newStringAppender(h, hs, ss, h.resolveExpansionThreshold(breakOnNewLine), stringAdapterString{}).appendEscapedString(s)
+	return h.stringAppender(hs, ss, breakOnNewLine).appendEscapedString(s)
 }
 
 func (h *Handler) appendEscapedByteString(hs *handleState, ss *stylecache.StringStyle, s []byte, breakOnNewLine bool) bool {
-	return newStringAppender(h, hs, ss, h.resolveExpansionThreshold(breakOnNewLine), stringAdapterBytes{}).appendEscapedString(s)
+	return h.byteStringAppender(hs, ss, breakOnNewLine).appendEscapedString(s)
+}
+
+func (h *Handler) stringAppender(hs *handleState, ss *stylecache.StringStyle, breakOnNewLine bool) stringAppender[string, stringAdapterString] {
+	return newStringAppender(h, hs, ss, h.resolveExpansionThreshold(breakOnNewLine), stringAdapterString{})
+}
+
+func (h *Handler) byteStringAppender(hs *handleState, ss *stylecache.StringStyle, breakOnNewLine bool) stringAppender[[]byte, stringAdapterBytes] {
+	return newStringAppender(h, hs, ss, h.resolveExpansionThreshold(breakOnNewLine), stringAdapterBytes{})
 }
 
 func (h *Handler) resolveExpansionThreshold(breakOnNewLine bool) int {
