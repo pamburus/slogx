@@ -520,11 +520,11 @@ func (h *Handler) appendEscapedString(hs *handleState, s string) {
 			case '"':
 				hs.buf.AppendString(h.tc.EscQuote)
 			default:
-				hs.buf.AppendString(h.theme.Escape.Prefix)
+				hs.buf.AppendString(h.theme.StringEscape.Prefix)
 				hs.buf.AppendString(`\u00`)
 				hs.buf.AppendByte(hexDigits[c>>4])
 				hs.buf.AppendByte(hexDigits[c&0xf])
-				hs.buf.AppendString(h.theme.Escape.Suffix)
+				hs.buf.AppendString(h.theme.StringEscape.Suffix)
 			}
 			i++
 			p = i
@@ -533,9 +533,9 @@ func (h *Handler) appendEscapedString(hs *handleState, s string) {
 			v, wd := utf8.DecodeRuneInString(s[i:])
 			if v == utf8.RuneError && wd == 1 {
 				hs.buf.AppendString(s[p:i])
-				hs.buf.AppendString(h.theme.Escape.Prefix)
+				hs.buf.AppendString(h.theme.StringEscape.Prefix)
 				hs.buf.AppendString(`\ufffd`)
-				hs.buf.AppendString(h.theme.Escape.Suffix)
+				hs.buf.AppendString(h.theme.StringEscape.Suffix)
 				i++
 				p = i
 			} else {
@@ -570,11 +570,11 @@ func (h *Handler) appendEscapedByteString(hs *handleState, s []byte) {
 			case '"':
 				hs.buf.AppendString(h.tc.EscQuote)
 			default:
-				hs.buf.AppendString(h.theme.Escape.Prefix)
+				hs.buf.AppendString(h.theme.StringEscape.Prefix)
 				hs.buf.AppendString(`\u00`)
 				hs.buf.AppendByte(hexDigits[c>>4])
 				hs.buf.AppendByte(hexDigits[c&0xf])
-				hs.buf.AppendString(h.theme.Escape.Suffix)
+				hs.buf.AppendString(h.theme.StringEscape.Suffix)
 			}
 			i++
 			p = i
@@ -583,9 +583,9 @@ func (h *Handler) appendEscapedByteString(hs *handleState, s []byte) {
 			v, wd := utf8.DecodeRune(s[i:])
 			if v == utf8.RuneError && wd == 1 {
 				hs.buf.AppendBytes(s[p:i])
-				hs.buf.AppendString(h.theme.Escape.Prefix)
+				hs.buf.AppendString(h.theme.StringEscape.Prefix)
 				hs.buf.AppendString(`\ufffd`)
-				hs.buf.AppendString(h.theme.Escape.Suffix)
+				hs.buf.AppendString(h.theme.StringEscape.Suffix)
 				i++
 				p = i
 			} else {
@@ -695,17 +695,17 @@ type shared struct {
 func newStyleCache(theme *Theme) styleCache {
 	sc := styleCache{
 		Source:    styleFromTheme(theme.Source).withTrailingSpace(),
-		Timestamp: styleFromTheme(theme.Timestamp).withTrailingSpace(),
-		Key:       styleFromTheme(theme.Key).withExtraSuffix(theme.EqualSign.Prefix + "=" + theme.EqualSign.Suffix),
+		Timestamp: styleFromTheme(theme.Time).withTrailingSpace(),
+		Key:       styleFromTheme(theme.Key).withExtraSuffix(theme.KeyValueSep.Prefix + "=" + theme.KeyValueSep.Suffix),
 		Message:   styleFromTheme(theme.Message).withTrailingSpace(),
-		String:    styleFromTheme(theme.String),
-		Quote:     styleFromTheme(theme.Quote),
-		Escape:    styleFromTheme(theme.Escape),
-		Number:    styleFromTheme(theme.Number),
-		Bool:      styleFromTheme(theme.Bool),
-		Error:     styleFromTheme(theme.Error),
-		Duration:  styleFromTheme(theme.Duration),
-		Time:      styleFromTheme(theme.Time),
+		String:    styleFromTheme(theme.StringValue),
+		Quote:     styleFromTheme(theme.StringQuote),
+		Escape:    styleFromTheme(theme.StringEscape),
+		Number:    styleFromTheme(theme.NumberValue),
+		Bool:      styleFromTheme(theme.BoolValue),
+		Error:     styleFromTheme(theme.ErrorValue),
+		Duration:  styleFromTheme(theme.DurationValue),
+		Time:      styleFromTheme(theme.TimeValue),
 		EvalError: styleFromTheme(theme.EvalError),
 		EvalPanic: styleFromTheme(theme.EvalPanic),
 		Array:     newStyle(styleFromTheme(theme.Array.Begin).render("["), styleFromTheme(theme.Array.End).render("]")),
@@ -764,7 +764,7 @@ func newThemeCache(theme *Theme) themeCache {
 	tc.MapSep2 = styleFromTheme(theme.Map.Sep2).render(":")
 	tc.EmptyArray = strings.TrimSpace(sc.Array.prefix) + strings.TrimSpace(sc.Array.suffix)
 	tc.EmptyMap = strings.TrimSpace(sc.Map.prefix) + strings.TrimSpace(sc.Map.suffix)
-	tc.Null = styleFromTheme(theme.Null).render("null")
+	tc.Null = styleFromTheme(theme.NullValue).render("null")
 	for i := 0; i < 4; i++ {
 		tc.LevelLabel[i] = styleFromTheme(theme.Level[i]).withTrailingSpace().render(levelLabels[i])
 	}

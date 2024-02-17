@@ -28,24 +28,24 @@ func ThemeDefault() Theme {
 	}
 
 	return Theme{
-		Timestamp:  ThemeItem{Prefix: "\x1b[2m", Suffix: "\x1b[m"},
-		Level:      level,
-		LevelValue: levelValue,
-		Message:    ThemeItem{Prefix: "\x1b[1m", Suffix: "\x1b[m"},
-		Key:        ThemeItem{Prefix: "\x1b[32m"},
-		EqualSign:  ThemeItem{Prefix: "\x1b[2m", Suffix: "\x1b[m"},
-		Source:     ThemeItem{Prefix: "\x1b[2;3m@ ", Suffix: "\x1b[m"},
-		Quote:      ThemeItem{Prefix: "\x1b[2m", Suffix: "\x1b[22m"},
-		Escape:     ThemeItem{Prefix: "\x1b[2m", Suffix: "\x1b[22m"},
-		Bool:       ThemeItem{Prefix: "\x1b[36m", Suffix: "\x1b[m"},
-		Number:     ThemeItem{Prefix: "\x1b[94m", Suffix: "\x1b[m"},
-		Null:       ThemeItem{Prefix: "\x1b[31m", Suffix: "\x1b[m"},
-		Error:      ThemeItem{Prefix: "\x1b[31m", Suffix: "\x1b[m"},
-		Duration:   ThemeItem{Prefix: "\x1b[94m", Suffix: "\x1b[m"},
-		Array:      composite(ThemeItem{Prefix: "\x1b[95m", Suffix: "\x1b[m"}),
-		Map:        composite(ThemeItem{Prefix: "\x1b[95m", Suffix: "\x1b[m"}),
-		EvalError:  ThemeItem{Prefix: "\x1b[31;2m$!(ERROR: \x1b[22m", Suffix: "\x1b[2m)\x1b[m"},
-		EvalPanic:  ThemeItem{Prefix: "\x1b[31;2m$!(PANIC: \x1b[22m", Suffix: "\x1b[2m)\x1b[m"},
+		Time:          ThemeItem{Prefix: "\x1b[2m", Suffix: "\x1b[m"},
+		Level:         level,
+		LevelValue:    levelValue,
+		Message:       ThemeItem{Prefix: "\x1b[1m", Suffix: "\x1b[m"},
+		Key:           ThemeItem{Prefix: "\x1b[32m"},
+		KeyValueSep:   ThemeItem{Prefix: "\x1b[2m", Suffix: "\x1b[m"},
+		Source:        ThemeItem{Prefix: "\x1b[2;3m@ ", Suffix: "\x1b[m"},
+		StringQuote:   ThemeItem{Prefix: "\x1b[2m", Suffix: "\x1b[22m"},
+		StringEscape:  ThemeItem{Prefix: "\x1b[2m", Suffix: "\x1b[22m"},
+		BoolValue:     ThemeItem{Prefix: "\x1b[36m", Suffix: "\x1b[m"},
+		NumberValue:   ThemeItem{Prefix: "\x1b[94m", Suffix: "\x1b[m"},
+		NullValue:     ThemeItem{Prefix: "\x1b[31m", Suffix: "\x1b[m"},
+		ErrorValue:    ThemeItem{Prefix: "\x1b[31m", Suffix: "\x1b[m"},
+		DurationValue: ThemeItem{Prefix: "\x1b[94m", Suffix: "\x1b[m"},
+		Array:         composite(ThemeItem{Prefix: "\x1b[95m", Suffix: "\x1b[m"}),
+		Map:           composite(ThemeItem{Prefix: "\x1b[95m", Suffix: "\x1b[m"}),
+		EvalError:     ThemeItem{Prefix: "\x1b[31;2m$!(ERROR: \x1b[22m", Suffix: "\x1b[2m)\x1b[m"},
+		EvalPanic:     ThemeItem{Prefix: "\x1b[31;2m$!(PANIC: \x1b[22m", Suffix: "\x1b[2m)\x1b[m"},
 	}
 }
 
@@ -77,65 +77,65 @@ func ThemeTint() Theme {
 	}
 
 	return Theme{
-		Timestamp:  ThemeItem{Prefix: "\x1b[2m", Suffix: "\x1b[m"},
-		Level:      level,
-		LevelValue: level,
-		Key:        ThemeItem{Prefix: "\x1b[2m"},
-		EqualSign:  ThemeItem{Suffix: "\x1b[m"},
-		Source:     ThemeItem{Prefix: "\x1b[2;3m@ ", Suffix: "\x1b[m"},
-		Escape:     ThemeItem{Prefix: "\x1b[2m", Suffix: "\x1b[22m"},
-		Error:      ThemeItem{Prefix: "\x1b[31m", Suffix: "\x1b[m"},
-		EvalError:  ThemeItem{Prefix: "\x1b[31;2m$!(ERROR: \x1b[22m", Suffix: "\x1b[2m)\x1b[m"},
-		EvalPanic:  ThemeItem{Prefix: "\x1b[31;2m$!(PANIC: \x1b[22m", Suffix: "\x1b[2m)\x1b[m"},
+		Time:         ThemeItem{Prefix: "\x1b[2m", Suffix: "\x1b[m"},
+		Level:        level,
+		LevelValue:   level,
+		Key:          ThemeItem{Prefix: "\x1b[2m"},
+		KeyValueSep:  ThemeItem{Suffix: "\x1b[m"},
+		Source:       ThemeItem{Prefix: "\x1b[2;3m@ ", Suffix: "\x1b[m"},
+		StringEscape: ThemeItem{Prefix: "\x1b[2m", Suffix: "\x1b[22m"},
+		ErrorValue:   ThemeItem{Prefix: "\x1b[31m", Suffix: "\x1b[m"},
+		EvalError:    ThemeItem{Prefix: "\x1b[31;2m$!(ERROR: \x1b[22m", Suffix: "\x1b[2m)\x1b[m"},
+		EvalPanic:    ThemeItem{Prefix: "\x1b[31;2m$!(PANIC: \x1b[22m", Suffix: "\x1b[2m)\x1b[m"},
 	}
 }
 
 // Theme is a theme for the Handler.
 type Theme struct {
-	Timestamp  ThemeItem
-	Level      [NumLevels]ThemeItem
-	LevelValue [NumLevels]ThemeItem
-	Message    ThemeItem
-	Key        ThemeItem
-	EqualSign  ThemeItem
-	Source     ThemeItem
-	String     ThemeItem
-	Quote      ThemeItem
-	Escape     ThemeItem
-	Bool       ThemeItem
-	Number     ThemeItem
-	Null       ThemeItem
-	Error      ThemeItem
-	Duration   ThemeItem
-	Time       ThemeItem
-	Array      ThemeCompositeItem
-	Map        ThemeCompositeItem
-	EvalError  ThemeItem
-	EvalPanic  ThemeItem
+	Time          ThemeItem
+	Level         [NumLevels]ThemeItem
+	Message       ThemeItem
+	Key           ThemeItem
+	Source        ThemeItem
+	KeyValueSep   ThemeItem
+	TimeValue     ThemeItem
+	LevelValue    [NumLevels]ThemeItem
+	StringValue   ThemeItem
+	StringQuote   ThemeItem
+	StringEscape  ThemeItem
+	BoolValue     ThemeItem
+	NumberValue   ThemeItem
+	NullValue     ThemeItem
+	ErrorValue    ThemeItem
+	DurationValue ThemeItem
+	Array         ThemeCompositeItem
+	Map           ThemeCompositeItem
+	EvalError     ThemeItem
+	EvalPanic     ThemeItem
 }
 
 // Plain returns a theme with no color.
 func (t Theme) Plain() Theme {
 	return Theme{
-		Timestamp: t.Timestamp.Plain(),
-		Level:     [NumLevels]ThemeItem{t.Level[0].Plain(), t.Level[1].Plain(), t.Level[2].Plain(), t.Level[3].Plain()},
-		Message:   t.Message.Plain(),
-		Key:       t.Key.Plain(),
-		EqualSign: t.EqualSign.Plain(),
-		Source:    t.Source.Plain(),
-		String:    t.String.Plain(),
-		Quote:     t.Quote.Plain(),
-		Escape:    t.Escape.Plain(),
-		Bool:      t.Bool.Plain(),
-		Number:    t.Number.Plain(),
-		Null:      t.Null.Plain(),
-		Error:     t.Error.Plain(),
-		Duration:  t.Duration.Plain(),
-		Time:      t.Time.Plain(),
-		Array:     t.Array.Plain(),
-		Map:       t.Map.Plain(),
-		EvalError: t.EvalError.Plain(),
-		EvalPanic: t.EvalPanic.Plain(),
+		Time:          t.Time.Plain(),
+		Level:         [NumLevels]ThemeItem{t.Level[0].Plain(), t.Level[1].Plain(), t.Level[2].Plain(), t.Level[3].Plain()},
+		Message:       t.Message.Plain(),
+		Key:           t.Key.Plain(),
+		KeyValueSep:   t.KeyValueSep.Plain(),
+		Source:        t.Source.Plain(),
+		StringValue:   t.StringValue.Plain(),
+		StringQuote:   t.StringQuote.Plain(),
+		StringEscape:  t.StringEscape.Plain(),
+		BoolValue:     t.BoolValue.Plain(),
+		NumberValue:   t.NumberValue.Plain(),
+		NullValue:     t.NullValue.Plain(),
+		ErrorValue:    t.ErrorValue.Plain(),
+		DurationValue: t.DurationValue.Plain(),
+		TimeValue:     t.TimeValue.Plain(),
+		Array:         t.Array.Plain(),
+		Map:           t.Map.Plain(),
+		EvalError:     t.EvalError.Plain(),
+		EvalPanic:     t.EvalPanic.Plain(),
 	}
 }
 
