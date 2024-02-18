@@ -55,39 +55,6 @@ func (c Context) IsNeeded(s string) bool {
 	return looksLikeNumber && nDots <= 1
 }
 
-// IsNeededBytes returns true if the string needs to be quoted.
-func (c Context) IsNeededBytes(s []byte) bool {
-	if !c.neededForNumbers {
-		for i := 0; i < len(s); {
-			r, width := utf8.DecodeRune(s[i:])
-			i += width
-			if c.isNeededForRune(r) {
-				return true
-			}
-		}
-
-		return false
-	}
-
-	looksLikeNumber := true
-	nDots := 0
-
-	for i := 0; i < len(s); {
-		r, width := utf8.DecodeRune(s[i:])
-		i += width
-		if c.isNeededForRune(r) {
-			return true
-		}
-		if r == '.' {
-			nDots++
-		} else if !isDigit(r) {
-			looksLikeNumber = false
-		}
-	}
-
-	return looksLikeNumber && nDots <= 1
-}
-
 func (c Context) isNeededForRune(r rune) bool {
 	switch {
 	case r == utf8.RuneError:

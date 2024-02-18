@@ -39,7 +39,7 @@ func WithSource(include bool) Option {
 	}
 }
 
-// WithMultilineExpansion( sets whether to expand multiline strings in the log message.
+// WithMultilineExpansion sets whether to expand multiline strings in the log message.
 func WithMultilineExpansion(setting ExpansionThreshold) Option {
 	return func(o *options) {
 		o.expansionThreshold = setting
@@ -119,9 +119,9 @@ const (
 type ExpansionThreshold int
 
 const (
-	ExpandAuto  ExpansionThreshold = 0           // ExpansionAuto enables multiline string expansion if recommended.
-	ExpandNever                    = math.MaxInt // ExpansionNever disables multiline string expansion.
-	ExpandAll                      = -1          // ExpansionAlways enables multiline string expansion.
+	ExpandAuto  ExpansionThreshold = 0           // ExpandAuto enables multiline string expansion if recommended.
+	ExpandNever                    = math.MaxInt // ExpandNever disables multiline string expansion.
+	ExpandAll                      = -1          // ExpandAll enables all multiline string expansion.
 )
 
 // ExpandIfOver returns an expansion threshold that expands multiline strings if length is over the given threshold.

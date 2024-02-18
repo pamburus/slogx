@@ -76,3 +76,9 @@ issues:
       text: 'lines are duplicate'
       paths:
         - 'benchmark_test.go'
+    # This disables the following rules:
+    # - G103: Use of unsafe calls should be audited
+    - linters: [gosec]
+      text: 'G103'
+      paths:
+        - 'slogtext/handler.go'

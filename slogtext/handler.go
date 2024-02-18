@@ -2,7 +2,6 @@
 package slogtext
 
 import (
-	"bytes"
 	"context"
 	"encoding"
 	"encoding/base64"
@@ -18,6 +17,7 @@ import (
 	"sync"
 	"time"
 	"unicode/utf8"
+	"unsafe"
 
 	"github.com/pamburus/slogx/internal/quoting"
 	"github.com/pamburus/slogx/internal/stylecache"
@@ -233,7 +233,7 @@ func (h *Handler) appendTime(hs *handleState, value time.Time, quote bool) {
 	hs.scratch.Reset()
 	hs.scratch = h.encodeTimeValue(hs.scratch, value)
 	if quote {
-		h.appendAutoQuotedByteString(hs, &h.stc.StringValue, hs.scratch.Bytes(), false)
+		h.appendAutoQuotedString(hs, &h.stc.StringValue, unsafe.String(&hs.scratch[0], hs.scratch.Len()), false)
 	} else {
 		hs.buf.AppendBytes(hs.scratch.Bytes())
 	}
@@ -243,7 +243,7 @@ func (h *Handler) appendDuration(hs *handleState, value time.Duration, quote boo
 	hs.scratch.Reset()
 	hs.scratch = h.encodeDuration(hs.scratch, value)
 	if quote {
-		h.appendAutoQuotedByteString(hs, &h.stc.StringValue, hs.scratch.Bytes(), false)
+		h.appendAutoQuotedString(hs, &h.stc.StringValue, unsafe.String(&hs.scratch[0], hs.scratch.Len()), false)
 	} else {
 		hs.buf.AppendBytes(hs.scratch.Bytes())
 	}
@@ -390,7 +390,7 @@ func (h *Handler) appendValue(hs *handleState, v slog.Value, quote bool, breakOn
 			}
 		case encoding.TextMarshaler:
 			if data, ok, errorAppended := safeResolveValueErr(h, hs, v.MarshalText); ok {
-				h.appendByteString(hs, &h.stc.StringValue, data, quote, breakOnNewLine)
+				h.appendString(hs, &h.stc.StringValue, unsafe.String(&data[0], len(data)), quote, breakOnNewLine)
 			} else {
 				return errorAppended
 			}
@@ -413,7 +413,7 @@ func (h *Handler) appendBytesValue(hs *handleState, v []byte, quote bool, breakO
 	default:
 		fallthrough
 	case BytesFormatString:
-		return h.appendByteString(hs, &h.stc.StringValue, v, quote, breakOnNewLine)
+		return h.appendString(hs, &h.stc.StringValue, unsafe.String(&v[0], len(v)), quote, breakOnNewLine)
 	case BytesFormatHex:
 		hs.buf.AppendString(h.stc.StringValue.Quoted.Prefix)
 		hex.Encode(hs.buf.Extend(hex.EncodedLen(len(v))), v)
@@ -467,7 +467,7 @@ func (h *Handler) appendAnyValue(hs *handleState, v any, quote bool) {
 	default:
 		hs.scratch.Reset()
 		_, _ = fmt.Fprintf(&hs.scratch, "%+v", v)
-		h.appendByteString(hs, &h.stc.StringValue, hs.scratch.Bytes(), quote, false)
+		h.appendString(hs, &h.stc.StringValue, unsafe.String(&hs.scratch[0], len(hs.scratch)), quote, false)
 	}
 }
 
@@ -506,41 +506,6 @@ func (h *Handler) appendString(hs *handleState, ss *stylecache.StringStyle, s st
 	return true
 }
 
-func (h *Handler) appendByteString(hs *handleState, ss *stylecache.StringStyle, s []byte, quote bool, breakOnNewLine bool) bool {
-	switch {
-	case hs.expandingAttrs:
-		s = bytes.TrimSpace(s)
-		for {
-			i := bytes.IndexByte(s, '\n')
-			if i == -1 {
-				i = len(s)
-			}
-			hs.buf.AppendBytes(hs.buf[:hs.messageBegin])
-			hs.buf.AppendString(ss.Unquoted.Prefix)
-			hs.buf.AppendByte(' ')
-			hs.buf.AppendByte('\t')
-			hs.buf.AppendBytes(s[:i])
-			hs.buf.AppendString(ss.Unquoted.Suffix)
-			hs.buf.AppendByte('\n')
-			if i < len(s) {
-				s = s[i+1:]
-			} else {
-				break
-			}
-		}
-	case quote:
-		if bytes.Equal(s, []byte("null")) {
-			hs.buf.AppendString(ss.Null)
-		} else {
-			return h.appendAutoQuotedByteString(hs, ss, s, breakOnNewLine)
-		}
-	default:
-		hs.buf.AppendBytes(s)
-	}
-
-	return true
-}
-
 func (h *Handler) appendAutoQuotedString(hs *handleState, ss *stylecache.StringStyle, v string, breakOnNewLine bool) bool {
 	switch {
 	case len(v) == 0:
@@ -563,31 +528,6 @@ func (h *Handler) appendUnquotedString(hs *handleState, ss *stylecache.StringSty
 func (h *Handler) appendQuotedString(hs *handleState, ss *stylecache.StringStyle, v string, breakOnNewLine bool) bool {
 	hs.buf.AppendString(ss.Quoted.Prefix)
 	done := h.appendEscapedString(hs, ss, v, breakOnNewLine)
-	hs.buf.AppendString(ss.Quoted.Suffix)
-	if !done {
-		hs.buf.TrimBackByte(' ')
-		hs.buf.AppendString(ss.Elipsis)
-	}
-
-	return done
-}
-
-func (h *Handler) appendAutoQuotedByteString(hs *handleState, ss *stylecache.StringStyle, v []byte, breakOnNewLine bool) bool {
-	switch {
-	case len(v) == 0:
-		hs.buf.AppendString(ss.Empty)
-	case quoting.StringValueContext().IsNeededBytes(v):
-		return h.appendQuotedByteString(hs, ss, v, breakOnNewLine)
-	default:
-		hs.buf.AppendBytes(v)
-	}
-
-	return true
-}
-
-func (h *Handler) appendQuotedByteString(hs *handleState, ss *stylecache.StringStyle, v []byte, breakOnNewLine bool) bool {
-	hs.buf.AppendString(ss.Quoted.Prefix)
-	done := h.appendEscapedByteString(hs, ss, v, breakOnNewLine)
 	hs.buf.AppendString(ss.Quoted.Suffix)
 	if !done {
 		hs.buf.TrimBackByte(' ')
@@ -648,61 +588,6 @@ func (h *Handler) appendEscapedString(hs *handleState, ss *stylecache.StringStyl
 	}
 
 	hs.buf.AppendString(s[p:])
-
-	return true
-}
-
-func (h *Handler) appendEscapedByteString(hs *handleState, ss *stylecache.StringStyle, s []byte, breakOnNewLine bool) bool {
-	p := 0
-
-	for i := 0; i < len(s); {
-		c := s[i]
-		switch {
-		case c < utf8.RuneSelf && c >= 0x20 && c != '\\' && c != '"':
-			i++
-
-		case c < utf8.RuneSelf:
-			hs.buf.AppendBytes(s[p:i])
-			switch c {
-			case '\t':
-				hs.buf.AppendString(ss.Escape.Tab)
-			case '\r':
-				hs.buf.AppendString(ss.Escape.CR)
-			case '\n':
-				hs.buf.AppendString(ss.Escape.LF)
-				if breakOnNewLine && i > int(h.expansionThreshold) {
-					return false
-				}
-			case '\\':
-				hs.buf.AppendString(ss.Escape.Backslash)
-			case '"':
-				hs.buf.AppendString(ss.Escape.Quote)
-			default:
-				hs.buf.AppendString(ss.Escape.Style.Prefix)
-				hs.buf.AppendString(`\u00`)
-				hs.buf.AppendByte(hexDigits[c>>4])
-				hs.buf.AppendByte(hexDigits[c&0xf])
-				hs.buf.AppendString(ss.Escape.Style.Suffix)
-			}
-			i++
-			p = i
-
-		default:
-			v, wd := utf8.DecodeRune(s[i:])
-			if v == utf8.RuneError && wd == 1 {
-				hs.buf.AppendBytes(s[p:i])
-				hs.buf.AppendString(ss.Escape.Style.Prefix)
-				hs.buf.AppendString(`\ufffd`)
-				hs.buf.AppendString(ss.Escape.Style.Suffix)
-				i++
-				p = i
-			} else {
-				i += wd
-			}
-		}
-	}
-
-	hs.buf.AppendBytes(s[p:])
 
 	return true
 }
@@ -776,7 +661,7 @@ func (h *Handler) source(pc uintptr) slog.Source {
 	}
 }
 
-func (h *Handler) appendEncodeError(hs *handleState, err error, breakOnNewLine bool) bool {
+func (h *Handler) appendEvalError(hs *handleState, err error) bool {
 	if hs.expandingAttrs {
 		return h.appendString(hs, &h.stc.ErrorValue, err.Error(), false, false)
 	}
@@ -787,16 +672,16 @@ func (h *Handler) appendEncodeError(hs *handleState, err error, breakOnNewLine b
 	return done
 }
 
-func (h *Handler) appendEncodePanic(hs *handleState, p any, breakOnNewLine bool) bool {
+func (h *Handler) appendEvalPanic(hs *handleState, p any) bool {
 	hs.scratch.Reset()
 	_, _ = fmt.Fprintf(&hs.scratch, "%v", p)
 
 	if hs.expandingAttrs {
-		return h.appendByteString(hs, &h.stc.ErrorValue, hs.scratch, false, false)
+		return h.appendString(hs, &h.stc.ErrorValue, unsafe.String(&hs.scratch[0], len(hs.scratch)), false, false)
 	}
 
 	hs.buf.AppendString(h.stc.EvalError.Prefix)
-	done := h.appendQuotedByteString(hs, &h.stc.ErrorValue, hs.scratch, !hs.expandingAttrs)
+	done := h.appendQuotedString(hs, &h.stc.ErrorValue, unsafe.String(&hs.scratch[0], len(hs.scratch)), true)
 	hs.buf.AppendString(h.stc.EvalError.Suffix)
 
 	return done
@@ -881,7 +766,7 @@ func (g groups) fork() groups {
 func safeResolveValue[T any](h *Handler, hs *handleState, resolve func() T) (_ T, resolved, errorAppended bool) {
 	defer func() {
 		if p := recover(); p != nil {
-			errorAppended = h.appendEncodePanic(hs, p, true)
+			errorAppended = h.appendEvalPanic(hs, p)
 			resolved = false
 		}
 	}()
@@ -894,9 +779,9 @@ func safeResolveValueErr[T any](h *Handler, hs *handleState, resolve func() (T, 
 
 	defer func() {
 		if p := recover(); p != nil {
-			errorAppended = h.appendEncodePanic(hs, p, true)
+			errorAppended = h.appendEvalPanic(hs, p)
 		} else if err != nil {
-			errorAppended = h.appendEncodeError(hs, err, true)
+			errorAppended = h.appendEvalError(hs, err)
 		}
 	}()
 
