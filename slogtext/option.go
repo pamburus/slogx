@@ -53,21 +53,21 @@ func WithTheme(theme Theme) Option {
 	}
 }
 
-// WithTimestampLayout sets the time layout for the Handler.
-func WithTimestampLayout(layout string) Option {
-	return WithTimestampEncodeFunc(timeLayout(layout))
+// WithTimeFormat sets the time format for the Handler.
+func WithTimeFormat(format string) Option {
+	return WithTimeEncodeFunc(timeFormat(format))
 }
 
-// WithTimestampEncodeFunc sets the time encode function for the Handler.
-func WithTimestampEncodeFunc(f TimeEncodeFunc) Option {
+// WithTimeEncodeFunc sets the time encode function for the Handler.
+func WithTimeEncodeFunc(f TimeEncodeFunc) Option {
 	return func(o *options) {
 		o.encodeTimestamp = f
 	}
 }
 
-// WithTimeValueLayout sets the time layout for the Handler.
-func WithTimeValueLayout(layout string) Option {
-	return WithTimeValueEncodeFunc(timeLayout(layout))
+// WithTimeValueFormat sets the time format for the Handler.
+func WithTimeValueFormat(format string) Option {
+	return WithTimeValueEncodeFunc(timeFormat(format))
 }
 
 // WithTimeValueEncodeFunc sets the time encode function for the Handler.
@@ -164,8 +164,8 @@ func defaultOptions() options {
 	return options{
 		leveler:            slog.LevelInfo,
 		color:              ColorAuto,
-		encodeTimestamp:    timeLayout(time.StampMilli),
-		encodeTimeValue:    timeLayout(time.StampMilli),
+		encodeTimestamp:    timeFormat(time.StampMilli),
+		encodeTimeValue:    timeFormat(time.StampMilli),
 		encodeDuration:     DurationAsSeconds(),
 		encodeSource:       SourceShort(),
 		expansionThreshold: 32,
@@ -185,7 +185,7 @@ func (o options) with(opts []Option) options {
 
 // ---
 
-func timeLayout(layout string) TimeEncodeFunc {
+func timeFormat(layout string) TimeEncodeFunc {
 	return func(buf []byte, t time.Time) []byte {
 		return t.AppendFormat(buf, layout)
 	}
