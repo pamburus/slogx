@@ -25,8 +25,8 @@ func WithColor(setting ColorSetting) Option {
 	}
 }
 
-// WithReplaceAttrFunc sets the replace attribute function for the Handler.
-func WithReplaceAttrFunc(f ReplaceAttrFunc) Option {
+// WithAttrReplaceFunc sets the replace attribute function for the Handler.
+func WithAttrReplaceFunc(f AttrReplaceFunc) Option {
 	return func(o *options) {
 		o.replaceAttr = f
 	}
@@ -131,8 +131,8 @@ func ExpandIfOver(threshold int) ExpansionThreshold {
 
 // ---
 
-// ReplaceAttrFunc is a function that replaces the attributes in the log message.
-type ReplaceAttrFunc func([]string, slog.Attr) slog.Attr
+// AttrReplaceFunc is a function that replaces the attributes in the log message.
+type AttrReplaceFunc func([]string, slog.Attr) slog.Attr
 
 // TimeEncodeFunc is a function that encodes the time in the log message.
 type TimeEncodeFunc func([]byte, time.Time) []byte
@@ -148,7 +148,7 @@ type SourceEncodeFunc func([]byte, slog.Source) []byte
 type options struct {
 	leveler            slog.Leveler
 	color              ColorSetting
-	replaceAttr        ReplaceAttrFunc
+	replaceAttr        AttrReplaceFunc
 	encodeTimestamp    TimeEncodeFunc
 	encodeTimeValue    TimeEncodeFunc
 	encodeDuration     DurationEncodeFunc
