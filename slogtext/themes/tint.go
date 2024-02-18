@@ -29,10 +29,6 @@ func Tint() Theme {
 		Key: Item{
 			Prefix: "\x1b[2m",
 		},
-		ExpandedKey: Item{
-			Prefix: "> \x1b[2m",
-			Suffix: "\x1b[m",
-		},
 		KeyValueSep: Item{
 			Suffix: "\x1b[m",
 		},
@@ -67,6 +63,12 @@ func Tint() Theme {
 		ExpandedMessageSign: Item{
 			Prefix: "\x1b[2m",
 			Suffix: "\x1b[22m",
+		},
+		ExpandedKeySign: Item{
+			Prefix: "\x1b[2m",
+		},
+		ExpandedKey: Item{
+			Suffix: "\x1b[m",
 		},
 		Unresolved: UnresolvedItem{
 			Begin: Item{
