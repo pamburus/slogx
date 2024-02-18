@@ -3,6 +3,7 @@ package stylecache
 import (
 	"strings"
 
+	"github.com/pamburus/slogx/internal/syntax"
 	"github.com/pamburus/slogx/slogtext/themes"
 )
 
@@ -10,26 +11,26 @@ import (
 
 func New(theme *Theme, cfg *Config) *StyleCache {
 	c := &StyleCache{
-		Config:         *cfg,
-		Time:           st(theme.Time).ws(),
-		Message:        sst(theme.Message).ws(),
-		Key:            st(theme.Key).append(st(theme.KeyValueSep).render(cfg.KeyValueSep)),
-		ExpandedKey:    st(theme.ExpandedKey),
-		Source:         st(theme.Source),
-		StringValue:    sst(theme.StringValue),
-		NumberValue:    st(theme.NumberValue),
-		BoolValue:      st(theme.BoolValue),
-		TimeValue:      st(theme.TimeValue),
-		DurationValue:  st(theme.DurationValue),
-		ErrorValue:     sst(theme.ErrorValue),
-		EvalError:      sti(st(theme.Unresolved.Begin).render(cfg.EvalErrorPrefix), st(theme.Unresolved.End).render(cfg.EvalErrorSuffix)),
-		EvalPanic:      sti(st(theme.Unresolved.Begin).render(cfg.EvalPanicPrefix), st(theme.Unresolved.End).render(cfg.EvalPanicSuffix)),
-		Array:          sti(st(theme.Array.Begin).render(cfg.ArrayBegin), st(theme.Array.End).render(cfg.ArrayEnd)),
-		ArraySep:       st(theme.Array.Sep).render(cfg.ArraySep),
-		Map:            sti(st(theme.Map.Begin).render(cfg.MapBegin), st(theme.Map.End).render(cfg.MapEnd)),
-		MapPairSep:     st(theme.Map.PairSep).render(cfg.MapPairSep),
-		MapKeyValueSep: st(theme.Map.KeyValueSep).render(cfg.MapKeyValueSep),
-		ExpansionSign:  st(theme.ExpansionSign),
+		Config:              *cfg,
+		Time:                st(theme.Time).ws(),
+		Message:             sst(theme.Message).ws(),
+		Key:                 st(theme.Key).append(st(theme.KeyValueSep).render(cfg.KeyValueSep)),
+		ExpandedKey:         st(theme.ExpandedKey).prepend(st(theme.ExpandedKeySign).render(syntax.ExpandedKeyPrefix)),
+		Source:              st(theme.Source),
+		StringValue:         sst(theme.StringValue),
+		NumberValue:         st(theme.NumberValue),
+		BoolValue:           st(theme.BoolValue),
+		TimeValue:           st(theme.TimeValue),
+		DurationValue:       st(theme.DurationValue),
+		ErrorValue:          sst(theme.ErrorValue),
+		EvalError:           sti(st(theme.Unresolved.Begin).render(cfg.EvalErrorPrefix), st(theme.Unresolved.End).render(cfg.EvalErrorSuffix)),
+		EvalPanic:           sti(st(theme.Unresolved.Begin).render(cfg.EvalPanicPrefix), st(theme.Unresolved.End).render(cfg.EvalPanicSuffix)),
+		Array:               sti(st(theme.Array.Begin).render(cfg.ArrayBegin), st(theme.Array.End).render(cfg.ArrayEnd)),
+		ArraySep:            st(theme.Array.Sep).render(cfg.ArraySep),
+		Map:                 sti(st(theme.Map.Begin).render(cfg.MapBegin), st(theme.Map.End).render(cfg.MapEnd)),
+		MapPairSep:          st(theme.Map.PairSep).render(cfg.MapPairSep),
+		MapKeyValueSep:      st(theme.Map.KeyValueSep).render(cfg.MapKeyValueSep),
+		ExpandedMessageSign: st(theme.ExpandedMessageSign).render(syntax.ExpandedMessageSuffix),
 	}
 
 	c.EmptyArray = strings.TrimSpace(c.Array.Prefix) + strings.TrimSpace(c.Array.Suffix)
@@ -45,31 +46,31 @@ func New(theme *Theme, cfg *Config) *StyleCache {
 }
 
 type StyleCache struct {
-	Config         Config
-	Time           Style
-	LevelLabel     [NumLevels]string
-	Message        StringStyle
-	Key            Style
-	ExpandedKey    Style
-	Source         Style
-	StringValue    StringStyle
-	NumberValue    Style
-	BoolValue      Style
-	TimeValue      Style
-	DurationValue  Style
-	ErrorValue     StringStyle
-	LevelValue     [NumLevels]Style
-	Array          Style
-	Map            Style
-	EvalError      Style
-	EvalPanic      Style
-	EmptyArray     string
-	ArraySep       string
-	EmptyMap       string
-	MapPairSep     string
-	MapKeyValueSep string
-	Null           string
-	ExpansionSign  Style
+	Config              Config
+	Time                Style
+	LevelLabel          [NumLevels]string
+	Message             StringStyle
+	Key                 Style
+	ExpandedKey         Style
+	Source              Style
+	StringValue         StringStyle
+	NumberValue         Style
+	BoolValue           Style
+	TimeValue           Style
+	DurationValue       Style
+	ErrorValue          StringStyle
+	LevelValue          [NumLevels]Style
+	Array               Style
+	Map                 Style
+	EvalError           Style
+	EvalPanic           Style
+	EmptyArray          string
+	ArraySep            string
+	EmptyMap            string
+	MapPairSep          string
+	MapKeyValueSep      string
+	Null                string
+	ExpandedMessageSign string
 }
 
 // ---

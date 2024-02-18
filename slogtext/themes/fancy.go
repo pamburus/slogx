@@ -16,7 +16,6 @@ func Fancy() Theme {
 	}
 
 	theme.Source.Prefix = strings.ReplaceAll(theme.Source.Prefix, "@", "→")
-	theme.ExpandedKey.Prefix = strings.ReplaceAll(theme.ExpandedKey.Prefix, ">", "•")
 
 	return theme
 }

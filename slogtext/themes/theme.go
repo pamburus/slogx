@@ -10,49 +10,51 @@ const NumLevels = 4
 
 // Theme is a theme for the Handler.
 type Theme struct {
-	Time          Item
-	Level         LevelItem
-	Message       StringItem
-	Key           Item
-	KeyValueSep   Item
-	ExpandedKey   Item
-	Source        Item
-	TimeValue     Item
-	LevelValue    LevelItem
-	StringValue   StringItem
-	BoolValue     Item
-	NumberValue   Item
-	NullValue     Item
-	ErrorValue    StringItem
-	DurationValue Item
-	Array         ArrayItem
-	Map           MapItem
-	ExpansionSign Item
-	Unresolved    UnresolvedItem
+	Time                Item
+	Level               LevelItem
+	Message             StringItem
+	Key                 Item
+	KeyValueSep         Item
+	Source              Item
+	TimeValue           Item
+	LevelValue          LevelItem
+	StringValue         StringItem
+	BoolValue           Item
+	NumberValue         Item
+	NullValue           Item
+	ErrorValue          StringItem
+	DurationValue       Item
+	Array               ArrayItem
+	Map                 MapItem
+	ExpandedKey         Item
+	ExpandedKeySign     Item
+	ExpandedMessageSign Item
+	Unresolved          UnresolvedItem
 }
 
 // Plain returns a theme with no color.
 func (t Theme) Plain() Theme {
 	return Theme{
-		Time:          t.Time.Plain(),
-		Level:         t.Level.Plain(),
-		Message:       t.Message.Plain(),
-		Key:           t.Key.Plain(),
-		KeyValueSep:   t.KeyValueSep.Plain(),
-		ExpandedKey:   t.ExpandedKey.Plain(),
-		Source:        t.Source.Plain(),
-		TimeValue:     t.TimeValue.Plain(),
-		LevelValue:    t.LevelValue.Plain(),
-		StringValue:   t.StringValue.Plain(),
-		BoolValue:     t.BoolValue.Plain(),
-		NumberValue:   t.NumberValue.Plain(),
-		NullValue:     t.NullValue.Plain(),
-		ErrorValue:    t.ErrorValue.Plain(),
-		DurationValue: t.DurationValue.Plain(),
-		Array:         t.Array.Plain(),
-		Map:           t.Map.Plain(),
-		ExpansionSign: t.ExpansionSign.Plain(),
-		Unresolved:    t.Unresolved.Plain(),
+		Time:                t.Time.Plain(),
+		Level:               t.Level.Plain(),
+		Message:             t.Message.Plain(),
+		Key:                 t.Key.Plain(),
+		KeyValueSep:         t.KeyValueSep.Plain(),
+		Source:              t.Source.Plain(),
+		TimeValue:           t.TimeValue.Plain(),
+		LevelValue:          t.LevelValue.Plain(),
+		StringValue:         t.StringValue.Plain(),
+		BoolValue:           t.BoolValue.Plain(),
+		NumberValue:         t.NumberValue.Plain(),
+		NullValue:           t.NullValue.Plain(),
+		ErrorValue:          t.ErrorValue.Plain(),
+		DurationValue:       t.DurationValue.Plain(),
+		Array:               t.Array.Plain(),
+		Map:                 t.Map.Plain(),
+		ExpandedKey:         t.ExpandedKey.Plain(),
+		ExpandedKeySign:     t.ExpandedKeySign.Plain(),
+		ExpandedMessageSign: t.ExpandedMessageSign.Plain(),
+		Unresolved:          t.Unresolved.Plain(),
 	}
 }
 

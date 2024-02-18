@@ -64,7 +64,7 @@ func Tint() Theme {
 				Suffix: "\x1b[22m",
 			},
 		},
-		ExpansionSign: Item{
+		ExpandedMessageSign: Item{
 			Prefix: "\x1b[2m",
 			Suffix: "\x1b[22m",
 		},

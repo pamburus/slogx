@@ -21,6 +21,7 @@ import (
 
 	"github.com/pamburus/slogx/internal/quoting"
 	"github.com/pamburus/slogx/internal/stylecache"
+	"github.com/pamburus/slogx/internal/syntax"
 	"github.com/pamburus/slogx/internal/tty"
 	"github.com/pamburus/slogx/slogtext/themes"
 )
@@ -142,9 +143,10 @@ func (h *Handler) Handle(ctx context.Context, record slog.Record) error {
 	}
 
 	if len(hs.attrsToExpand) != 0 {
-		hs.buf.AppendString(h.stc.ExpansionSign.Prefix)
-		hs.buf.AppendString(">>")
-		hs.buf.AppendString(h.stc.ExpansionSign.Suffix)
+		if hs.buf.Back() != ' ' {
+			hs.buf.AppendByte(' ')
+		}
+		hs.buf.AppendString(h.stc.ExpandedMessageSign)
 		hs.expandingAttrs = true
 		for _, attr := range hs.attrsToExpand {
 			hs.buf.AppendByte('\n')
@@ -481,9 +483,8 @@ func (h *Handler) appendString(hs *handleState, ss *stylecache.StringStyle, s st
 				i = len(s)
 			}
 			hs.buf.AppendBytes(hs.buf[:hs.messageBegin])
+			hs.buf.AppendString(syntax.ExpandedValuePrefix)
 			hs.buf.AppendString(ss.Unquoted.Prefix)
-			hs.buf.AppendByte(' ')
-			hs.buf.AppendByte('\t')
 			hs.buf.AppendString(s[:i])
 			hs.buf.AppendString(ss.Unquoted.Suffix)
 			hs.buf.AppendByte('\n')

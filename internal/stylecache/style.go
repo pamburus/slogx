@@ -22,6 +22,12 @@ func (s Style) append(suffix string) Style {
 	return s
 }
 
+func (s Style) prepend(prefix string) Style {
+	s.set(prefix+s.Prefix, s.Suffix)
+
+	return s
+}
+
 func (s Style) render(inner string) string {
 	return s.Prefix + inner + s.Suffix
 }

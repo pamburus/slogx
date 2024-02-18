@@ -70,10 +70,6 @@ func Default() Theme {
 			Prefix: "\x1b[2m",
 			Suffix: "\x1b[m",
 		},
-		ExpandedKey: Item{
-			Prefix: "> \x1b[32m",
-			Suffix: "\x1b[m",
-		},
 		Source: Item{
 			Prefix: "\x1b[2;3m@ ",
 			Suffix: "\x1b[m",
@@ -137,7 +133,15 @@ func Default() Theme {
 			KeyValueSep: sep,
 			End:         brace,
 		},
-		ExpansionSign: Item{
+		ExpandedKey: Item{
+			Prefix: "\x1b[32m",
+			Suffix: "\x1b[m",
+		},
+		ExpandedMessageSign: Item{
+			Prefix: "\x1b[2m",
+			Suffix: "\x1b[22m",
+		},
+		ExpandedKeySign: Item{
 			Prefix: "\x1b[2m",
 			Suffix: "\x1b[22m",
 		},

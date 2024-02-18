@@ -9,6 +9,7 @@ func MessageContext() Context {
 	return Context{
 		needed:           &messageQuoteSetV,
 		neededForNumbers: false,
+		extraCheck:       messageExtraCheck,
 	}
 }
 
@@ -17,6 +18,7 @@ func StringValueContext() Context {
 	return Context{
 		needed:           &stringValueQuoteSetV,
 		neededForNumbers: true,
+		extraCheck:       noExtraCheck,
 	}
 }
 
@@ -24,6 +26,7 @@ func StringValueContext() Context {
 type Context struct {
 	needed           *[utf8.RuneSelf]bool
 	neededForNumbers bool
+	extraCheck       func(string) bool
 }
 
 // IsNeeded returns true if the string needs to be quoted.
@@ -35,7 +38,7 @@ func (c Context) IsNeeded(s string) bool {
 			}
 		}
 
-		return false
+		return c.extraCheck(s)
 	}
 
 	looksLikeNumber := true
@@ -52,7 +55,7 @@ func (c Context) IsNeeded(s string) bool {
 		}
 	}
 
-	return looksLikeNumber && nDots <= 1
+	return (looksLikeNumber && nDots <= 1) || c.extraCheck(s)
 }
 
 func (c Context) isNeededForRune(r rune) bool {
@@ -103,6 +106,27 @@ func defaultQuoteSet() [utf8.RuneSelf]bool {
 	}
 
 	return needed
+}
+
+func noExtraCheck(string) bool {
+	return false
+}
+
+func messageExtraCheck(s string) bool {
+	n := len(s)
+
+	if n < 3 {
+		return false
+	}
+
+	switch s[0] {
+	case ' ':
+		return s[1] == ' ' && s[2] == '\t'
+	case '>':
+		return s[1] == '-' && s[2] == ' '
+	}
+
+	return s[n-1] == '>' && s[n-2] == '>' && s[n-3] == ' '
 }
 
 var (
