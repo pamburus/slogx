@@ -65,6 +65,8 @@ func (c Context) IsNeededBytes(s []byte) bool {
 				return true
 			}
 		}
+
+		return false
 	}
 
 	looksLikeNumber := true
