@@ -142,6 +142,9 @@ func (h *Handler) Handle(ctx context.Context, record slog.Record) error {
 	}
 
 	if len(hs.attrsToExpand) != 0 {
+		hs.buf.AppendString(h.stc.ExpansionSign.Prefix)
+		hs.buf.AppendString(">>")
+		hs.buf.AppendString(h.stc.ExpansionSign.Suffix)
 		hs.expandingAttrs = true
 		for _, attr := range hs.attrsToExpand {
 			hs.buf.AppendByte('\n')
@@ -479,7 +482,8 @@ func (h *Handler) appendString(hs *handleState, ss *stylecache.StringStyle, s st
 			}
 			hs.buf.AppendBytes(hs.buf[:hs.messageBegin])
 			hs.buf.AppendString(ss.Unquoted.Prefix)
-			hs.buf.AppendString(h.stc.ExpandedAttr.ValueIndent)
+			hs.buf.AppendByte(' ')
+			hs.buf.AppendByte('\t')
 			hs.buf.AppendString(s[:i])
 			hs.buf.AppendString(ss.Unquoted.Suffix)
 			hs.buf.AppendByte('\n')
@@ -513,7 +517,8 @@ func (h *Handler) appendByteString(hs *handleState, ss *stylecache.StringStyle, 
 			}
 			hs.buf.AppendBytes(hs.buf[:hs.messageBegin])
 			hs.buf.AppendString(ss.Unquoted.Prefix)
-			hs.buf.AppendString(h.stc.ExpandedAttr.ValueIndent)
+			hs.buf.AppendByte(' ')
+			hs.buf.AppendByte('\t')
 			hs.buf.AppendBytes(s[:i])
 			hs.buf.AppendString(ss.Unquoted.Suffix)
 			hs.buf.AppendByte('\n')
@@ -560,6 +565,7 @@ func (h *Handler) appendQuotedString(hs *handleState, ss *stylecache.StringStyle
 	done := h.appendEscapedString(hs, ss, v, breakOnNewLine)
 	hs.buf.AppendString(ss.Quoted.Suffix)
 	if !done {
+		hs.buf.TrimBackByte(' ')
 		hs.buf.AppendString(ss.Elipsis)
 	}
 
@@ -584,6 +590,7 @@ func (h *Handler) appendQuotedByteString(hs *handleState, ss *stylecache.StringS
 	done := h.appendEscapedByteString(hs, ss, v, breakOnNewLine)
 	hs.buf.AppendString(ss.Quoted.Suffix)
 	if !done {
+		hs.buf.TrimBackByte(' ')
 		hs.buf.AppendString(ss.Elipsis)
 	}
 

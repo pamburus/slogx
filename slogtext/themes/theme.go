@@ -27,6 +27,7 @@ type Theme struct {
 	DurationValue Item
 	Array         ArrayItem
 	Map           MapItem
+	ExpansionSign Item
 	Unresolved    UnresolvedItem
 }
 
@@ -50,6 +51,7 @@ func (t Theme) Plain() Theme {
 		DurationValue: t.DurationValue.Plain(),
 		Array:         t.Array.Plain(),
 		Map:           t.Map.Plain(),
+		ExpansionSign: t.ExpansionSign.Plain(),
 		Unresolved:    t.Unresolved.Plain(),
 	}
 }

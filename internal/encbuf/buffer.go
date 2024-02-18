@@ -73,6 +73,19 @@ func (b *Buffer) SetBack(v byte) {
 	(*b)[len(*b)-1] = v
 }
 
+// TrimBack removes n last bytes from the underlying byte slice.
+func (b *Buffer) TrimBack(n int) {
+	*b = (*b)[:len(*b)-n]
+}
+
+// TrimBackByte removes the last byte from the underlying byte slice if it
+// matches the given byte.
+func (b *Buffer) TrimBackByte(v byte) {
+	if len(*b) > 0 && b.Back() == v {
+		b.TrimBack(1)
+	}
+}
+
 // Bytes returns the underlying byte slice as is.
 func (b Buffer) Bytes() []byte {
 	return b

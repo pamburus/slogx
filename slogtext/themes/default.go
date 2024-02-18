@@ -137,6 +137,10 @@ func Default() Theme {
 			KeyValueSep: sep,
 			End:         brace,
 		},
+		ExpansionSign: Item{
+			Prefix: "\x1b[2m",
+			Suffix: "\x1b[22m",
+		},
 		Unresolved: UnresolvedItem{
 			Begin: Item{
 				Prefix: "\x1b[31;2m",

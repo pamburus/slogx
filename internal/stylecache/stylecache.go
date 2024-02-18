@@ -29,6 +29,7 @@ func New(theme *Theme, cfg *Config) *StyleCache {
 		Map:            sti(st(theme.Map.Begin).render(cfg.MapBegin), st(theme.Map.End).render(cfg.MapEnd)),
 		MapPairSep:     st(theme.Map.PairSep).render(cfg.MapPairSep),
 		MapKeyValueSep: st(theme.Map.KeyValueSep).render(cfg.MapKeyValueSep),
+		ExpansionSign:  st(theme.ExpansionSign),
 	}
 
 	c.EmptyArray = strings.TrimSpace(c.Array.Prefix) + strings.TrimSpace(c.Array.Suffix)
@@ -39,8 +40,6 @@ func New(theme *Theme, cfg *Config) *StyleCache {
 		c.LevelLabel[i] = st(theme.Level[i]).ws().render(cfg.LevelLabels[i])
 		c.LevelValue[i] = st(theme.LevelValue[i]).ws()
 	}
-
-	c.ExpandedAttr.ValueIndent = strings.Repeat(" ", 4)
 
 	return c
 }
@@ -70,9 +69,7 @@ type StyleCache struct {
 	MapPairSep     string
 	MapKeyValueSep string
 	Null           string
-	ExpandedAttr   struct {
-		ValueIndent string
-	}
+	ExpansionSign  Style
 }
 
 // ---
