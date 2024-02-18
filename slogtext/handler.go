@@ -265,12 +265,12 @@ func (h *Handler) appendHandlerAttrs(hs *handleState) {
 	}
 }
 
-// hasUncachedAttrs must be called under the cache.once lock
+// hasUncachedAttrs must be called under the cache.once lock.
 func (h *Handler) hasUncachedAttrs() bool {
 	return h.cache.numAttrs != len(h.attrs) || h.cache.numGroups != h.groups.len()
 }
 
-// initAttrCache must be called under the cache.once lock
+// initAttrCache must be called under the cache.once lock.
 func (h *Handler) initAttrCache(hs *handleState) bool {
 	pos := hs.buf.Len()
 	hs.buf.AppendString(h.cache.attrs)
@@ -614,10 +614,10 @@ func (h *Handler) appendLevelWithOffset(hs *handleState, level slog.Level) {
 		switch {
 		case offset > 9:
 			hs.buf.AppendByte('+')
-			hs.buf.AppendByte('~')
+			hs.buf.AppendByte(syntax.LevelLabelOffsetOverflow)
 		case offset < -9:
 			hs.buf.AppendByte('-')
-			hs.buf.AppendByte('~')
+			hs.buf.AppendByte(syntax.LevelLabelOffsetUnderflow)
 		case offset >= 0:
 			hs.buf.AppendByte('+')
 			fallthrough
@@ -627,7 +627,7 @@ func (h *Handler) appendLevelWithOffset(hs *handleState, level slog.Level) {
 	}
 
 	i := levelIndex(level)
-	hs.buf.AppendString(h.stc.LevelValue[i].Prefix)
+	hs.buf.AppendString(h.stc.LevelLabelStyle[i].Prefix)
 	offset := int64(level - levels[i])
 	if offset != 0 {
 		hs.buf.AppendString(h.stc.Config.LevelLabels[i][:1])
@@ -635,7 +635,7 @@ func (h *Handler) appendLevelWithOffset(hs *handleState, level slog.Level) {
 	} else {
 		hs.buf.AppendString(h.stc.Config.LevelLabels[i])
 	}
-	hs.buf.AppendString(h.stc.LevelValue[i].Suffix)
+	hs.buf.AppendString(h.stc.LevelLabelStyle[i].Suffix)
 }
 
 func (h *Handler) appendLevelValue(hs *handleState, level slog.Level) {
@@ -802,8 +802,8 @@ type group struct {
 	prefixLen int
 }
 
-// cache must be modified only under the once lock
-// cache must be read either under the once lock or after the once lock is released
+// cache must be modified only under the once lock.
+// cache must be read either under the once lock or after the once lock is released.
 type cache struct {
 	attrs     string
 	numGroups int

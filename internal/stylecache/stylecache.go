@@ -38,6 +38,7 @@ func New(theme *Theme, cfg *Config) *StyleCache {
 	c.Null = st(theme.NullValue).render("null")
 
 	for i := 0; i < NumLevels; i++ {
+		c.LevelLabelStyle[i] = st(theme.Level[i]).ws()
 		c.LevelLabel[i] = st(theme.Level[i]).ws().render(cfg.LevelLabels[i])
 		c.LevelValue[i] = st(theme.LevelValue[i])
 	}
@@ -48,6 +49,7 @@ func New(theme *Theme, cfg *Config) *StyleCache {
 type StyleCache struct {
 	Config              Config
 	Time                Style
+	LevelLabelStyle     [NumLevels]Style
 	LevelLabel          [NumLevels]string
 	Message             StringStyle
 	Key                 Style
