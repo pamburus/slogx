@@ -212,9 +212,11 @@ func (h *Handler) WithGroup(key string) slog.Handler {
 
 func (h *Handler) fork() *Handler {
 	h.cache.once.Do(func() {
-		hs := newHandleState(context.Background(), h)
-		h.initAttrCache(hs)
-		hs.release()
+		if h.hasUncachedAttrs() {
+			hs := newHandleState(context.Background(), h)
+			h.initAttrCache(hs)
+			hs.release()
+		}
 	})
 
 	return &Handler{
@@ -263,8 +265,9 @@ func (h *Handler) appendHandlerAttrs(hs *handleState) {
 	appended := false
 
 	h.cache.once.Do(func() {
-		appended = h.initAttrCache(hs)
-		appended = true
+		if h.hasUncachedAttrs() {
+			appended = h.initAttrCache(hs)
+		}
 	})
 
 	if !appended && len(h.cache.attrs) != 0 {
@@ -272,11 +275,13 @@ func (h *Handler) appendHandlerAttrs(hs *handleState) {
 	}
 }
 
-func (h *Handler) initAttrCache(hs *handleState) bool {
-	if h.cache.numAttrs == len(h.attrs) && h.cache.numGroups == h.groups.len() {
-		return false
-	}
+// hasUncachedAttrs must be called under the cache.once lock
+func (h *Handler) hasUncachedAttrs() bool {
+	return h.cache.numAttrs != len(h.attrs) || h.cache.numGroups != h.groups.len()
+}
 
+// initAttrCache must be called under the cache.once lock
+func (h *Handler) initAttrCache(hs *handleState) bool {
 	pos := hs.buf.Len()
 	hs.buf.AppendString(h.cache.attrs)
 
@@ -808,6 +813,8 @@ type group struct {
 	prefixLen int
 }
 
+// cache must be modified only under the once lock
+// cache must be read either under the once lock or after the once lock is released
 type cache struct {
 	attrs     string
 	numGroups int
