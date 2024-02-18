@@ -85,18 +85,20 @@ func (h *Handler) Handle(ctx context.Context, record slog.Record) error {
 	replace := h.replaceAttr
 
 	if !record.Time.IsZero() {
-		val := record.Time.Round(0)
-		hs.buf.AppendString(h.stc.Time.Prefix)
-		if replace == nil {
-			h.appendTimestamp(hs, record.Time)
-		} else if attr := replace(nil, slog.Time(slog.TimeKey, val)); attr.Key != "" {
-			if attr.Value.Kind() == slog.KindTime {
-				h.appendTimestamp(hs, attr.Value.Time())
+		value := record.Time.Round(0)
+		if replace != nil {
+			attr := replace(nil, slog.Time(slog.TimeKey, value))
+			if attr.Key != "" && attr.Value.Kind() == slog.KindTime {
+				value = attr.Value.Time()
 			} else {
-				h.appendValue(hs, attr.Value, false, false)
+				value = time.Time{}
 			}
 		}
-		hs.buf.AppendString(h.stc.Time.Suffix)
+		if !value.IsZero() {
+			hs.buf.AppendString(h.stc.Time.Prefix)
+			h.appendTimestamp(hs, value)
+			hs.buf.AppendString(h.stc.Time.Suffix)
+		}
 	}
 
 	h.appendLevel(hs, record.Level)
@@ -108,7 +110,7 @@ func (h *Handler) Handle(ctx context.Context, record slog.Record) error {
 				record.Message = attr.Value.String()
 			default:
 				record.Message = ""
-				h.appendValue(hs, attr.Value, false, false)
+				h.appendAttr(hs, attr, len(h.keyPrefix))
 			}
 		}
 	}
@@ -211,7 +213,6 @@ func (h *Handler) WithGroup(key string) slog.Handler {
 }
 
 func (h *Handler) fork() *Handler {
-
 	return &Handler{
 		h.shared,
 		slices.Clip(h.attrs),
@@ -829,7 +830,12 @@ func (c *cache) fork(h *Handler) cache {
 
 // ---
 
-var levels = [numLevels]slog.Level{slog.LevelDebug, slog.LevelInfo, slog.LevelWarn, slog.LevelError}
+var levels = [numLevels]slog.Level{
+	slog.LevelDebug,
+	slog.LevelInfo,
+	slog.LevelWarn,
+	slog.LevelError,
+}
 
 func levelIndex(level slog.Level) int {
 	return min(max(0, (int(level)+4)/4), numLevels-1)
