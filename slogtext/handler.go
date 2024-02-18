@@ -89,8 +89,22 @@ func (h *Handler) Handle(ctx context.Context, record slog.Record) error {
 		value := record.Time.Round(0)
 		if replace != nil {
 			attr := replace(nil, slog.Time(slog.TimeKey, value))
-			if attr.Key != "" && attr.Value.Kind() == slog.KindTime {
-				value = attr.Value.Time()
+			if attr.Key != "" {
+				attr.Value = attr.Value.Resolve()
+				switch attr.Value.Kind() {
+				case slog.KindTime:
+					value = attr.Value.Time()
+				case slog.KindString:
+					hs.buf.AppendString(h.stc.Time.Prefix)
+					hs.buf.AppendString(attr.Value.String())
+					hs.buf.AppendString(h.stc.Time.Suffix)
+				case slog.KindUint64:
+					value = time.Unix(0, int64(attr.Value.Uint64()))
+				case slog.KindInt64:
+					value = time.Unix(0, attr.Value.Int64())
+				default:
+					value = time.Time{}
+				}
 			} else {
 				value = time.Time{}
 			}
@@ -106,6 +120,7 @@ func (h *Handler) Handle(ctx context.Context, record slog.Record) error {
 
 	if replace != nil {
 		if attr := replace(nil, slog.String(slog.MessageKey, record.Message)); attr.Key != "" {
+			attr.Value = attr.Value.Resolve()
 			switch {
 			case attr.Value.Kind() == slog.KindString:
 				record.Message = attr.Value.String()
