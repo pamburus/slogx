@@ -175,7 +175,9 @@ func defaultOptions() options {
 
 func (o options) with(opts []Option) options {
 	for _, opt := range opts {
-		opt(&o)
+		if opt != nil {
+			opt(&o)
+		}
 	}
 
 	return o
