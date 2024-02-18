@@ -16,7 +16,7 @@ func New(theme *Theme, cfg *Config) *StyleCache {
 		Message:             sst(theme.Message).ws(),
 		Key:                 st(theme.Key).append(st(theme.KeyValueSep).render(cfg.KeyValueSep)),
 		ExpandedKey:         st(theme.ExpandedKey).prepend(st(theme.ExpandedKeySign).render(syntax.ExpandedKeyPrefix)),
-		Source:              st(theme.Source),
+		Source:              st(theme.Source).ws(),
 		StringValue:         sst(theme.StringValue),
 		NumberValue:         st(theme.NumberValue),
 		BoolValue:           st(theme.BoolValue),

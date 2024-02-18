@@ -143,9 +143,7 @@ func (h *Handler) Handle(ctx context.Context, record slog.Record) error {
 	}
 
 	if len(hs.attrsToExpand) != 0 {
-		if hs.buf.Back() != ' ' {
-			hs.buf.AppendByte(' ')
-		}
+		hs.buf.TrimBackByte(' ')
 		hs.buf.AppendString(h.stc.ExpandedMessageSign)
 		hs.expandingAttrs = true
 		for _, attr := range hs.attrsToExpand {
