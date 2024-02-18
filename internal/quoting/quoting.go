@@ -18,7 +18,7 @@ func StringValueContext() Context {
 	return Context{
 		needed:           &stringValueQuoteSetV,
 		neededForNumbers: true,
-		extraCheck:       noExtraCheck,
+		extraCheck:       stringValueExtraCheck,
 	}
 }
 
@@ -37,25 +37,27 @@ func (c Context) IsNeeded(s string) bool {
 				return true
 			}
 		}
+	} else {
+		looksLikeNumber := true
+		nDots := 0
 
-		return c.extraCheck(s)
-	}
+		for _, r := range s {
+			switch {
+			case c.isNeededForRune(r):
+				return true
+			case r == '.':
+				nDots++
+			case !isDigit(r):
+				looksLikeNumber = false
+			}
+		}
 
-	looksLikeNumber := true
-	nDots := 0
-
-	for _, r := range s {
-		if c.isNeededForRune(r) {
+		if looksLikeNumber && nDots <= 1 {
 			return true
 		}
-		if r == '.' {
-			nDots++
-		} else if !isDigit(r) {
-			looksLikeNumber = false
-		}
 	}
 
-	return (looksLikeNumber && nDots <= 1) || c.extraCheck(s)
+	return c.extraCheck(s)
 }
 
 func (c Context) isNeededForRune(r rune) bool {
@@ -108,7 +110,12 @@ func defaultQuoteSet() [utf8.RuneSelf]bool {
 	return needed
 }
 
-func noExtraCheck(string) bool {
+func stringValueExtraCheck(s string) bool {
+	switch s {
+	case "true", "false", "null":
+		return true
+	}
+
 	return false
 }
 
