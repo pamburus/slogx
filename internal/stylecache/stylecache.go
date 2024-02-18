@@ -39,7 +39,7 @@ func New(theme *Theme, cfg *Config) *StyleCache {
 
 	for i := 0; i < NumLevels; i++ {
 		c.LevelLabel[i] = st(theme.Level[i]).ws().render(cfg.LevelLabels[i])
-		c.LevelValue[i] = st(theme.LevelValue[i]).ws()
+		c.LevelValue[i] = st(theme.LevelValue[i])
 	}
 
 	return c
