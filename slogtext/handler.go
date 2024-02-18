@@ -481,7 +481,6 @@ func (h *Handler) appendAnyValue(hs *handleState, v any, quote bool) {
 func (h *Handler) appendString(hs *handleState, ss *stylecache.StringStyle, s string, quote bool, breakOnNewLine bool) bool {
 	switch {
 	case hs.expandingAttrs:
-		s = strings.TrimSpace(s)
 		for {
 			i := strings.IndexByte(s, '\n')
 			if i == -1 {
