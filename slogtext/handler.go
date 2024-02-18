@@ -85,17 +85,9 @@ func (h *Handler) Handle(ctx context.Context, record slog.Record) error {
 	replace := h.replaceAttr
 
 	if !record.Time.IsZero() {
-		val := record.Time.Round(0)
+		value := record.Time.Round(0)
 		hs.buf.AppendString(h.stc.Time.Prefix)
-		if replace == nil {
-			h.appendTimestamp(hs, record.Time)
-		} else if attr := replace(nil, slog.Time(slog.TimeKey, val)); attr.Key != "" {
-			if attr.Value.Kind() == slog.KindTime {
-				h.appendTimestamp(hs, attr.Value.Time())
-			} else {
-				h.appendValue(hs, attr.Value, false, false)
-			}
-		}
+		h.appendTimestamp(hs, value)
 		hs.buf.AppendString(h.stc.Time.Suffix)
 	}
 
@@ -108,7 +100,7 @@ func (h *Handler) Handle(ctx context.Context, record slog.Record) error {
 				record.Message = attr.Value.String()
 			default:
 				record.Message = ""
-				h.appendValue(hs, attr.Value, false, false)
+				h.appendAttr(hs, attr, len(h.keyPrefix))
 			}
 		}
 	}
@@ -211,7 +203,6 @@ func (h *Handler) WithGroup(key string) slog.Handler {
 }
 
 func (h *Handler) fork() *Handler {
-
 	return &Handler{
 		h.shared,
 		slices.Clip(h.attrs),
@@ -251,48 +242,51 @@ func (h *Handler) appendHandlerAttrs(hs *handleState) {
 		return
 	}
 
-	appended := false
-
-	h.cache.once.Do(func() {
-		if h.hasUncachedAttrs() {
-			appended = h.initAttrCache(hs)
-		}
-	})
+	appended := h.initAttrCache(hs)
 
 	if !appended && len(h.cache.attrs) != 0 {
 		hs.buf.AppendString(h.cache.attrs)
 	}
 }
 
-// hasUncachedAttrs must be called under the cache.once lock
-func (h *Handler) hasUncachedAttrs() bool {
-	return h.cache.numAttrs != len(h.attrs) || h.cache.numGroups != h.groups.len()
-}
-
-// initAttrCache must be called under the cache.once lock
-func (h *Handler) initAttrCache(hs *handleState) bool {
-	pos := hs.buf.Len()
-	hs.buf.AppendString(h.cache.attrs)
-
-	begin := h.cache.numAttrs
-	for i := h.cache.numGroups; i != h.groups.len(); i++ {
-		group := h.groups.at(i)
-		end := group.i
-		for _, attr := range h.attrs[begin:end] {
-			h.appendAttr(hs, attr, group.prefixLen)
+func (h *Handler) initAttrCache(hs *handleState) (appended bool) {
+	h.cache.once.Do(func() {
+		if h.cache.parent != nil {
+			appended = h.cache.parent.initAttrCache(hs)
+			h.cache.cacheData = h.cache.parent.cache.cacheData
+			h.cache.parent = nil
+			h.cache.chainLen = 0
 		}
-		begin = end
-	}
 
-	for _, attr := range h.attrs[begin:] {
-		h.appendAttr(hs, attr, len(h.keyPrefix))
-	}
+		if h.cache.numAttrs == len(h.attrs) && h.cache.numGroups == h.groups.len() {
+			return
+		}
 
-	h.cache.attrs = hs.buf[pos:].String()
-	h.cache.numGroups = h.groups.len()
-	h.cache.numAttrs = len(h.attrs)
+		pos := hs.buf.Len()
+		hs.buf.AppendString(h.cache.attrs)
 
-	return true
+		begin := h.cache.numAttrs
+		for i := h.cache.numGroups; i != h.groups.len(); i++ {
+			group := h.groups.at(i)
+			end := group.i
+			for _, attr := range h.attrs[begin:end] {
+				h.appendAttr(hs, attr, group.prefixLen)
+			}
+			begin = end
+		}
+
+		for _, attr := range h.attrs[begin:] {
+			h.appendAttr(hs, attr, len(h.keyPrefix))
+		}
+
+		h.cache.attrs = hs.buf[pos:].String()
+		h.cache.numGroups = h.groups.len()
+		h.cache.numAttrs = len(h.attrs)
+
+		appended = true
+	})
+
+	return appended
 }
 
 func (h *Handler) appendAttr(hs *handleState, attr slog.Attr, basePrefixLen int) {
@@ -805,31 +799,42 @@ type group struct {
 // cache must be modified only under the once lock
 // cache must be read either under the once lock or after the once lock is released
 type cache struct {
-	attrs     string
-	numGroups int
-	numAttrs  int
-	once      sync.Once
+	cacheData
+	parent   *Handler
+	chainLen int
+	once     sync.Once
 }
 
 func (c *cache) fork(h *Handler) cache {
-	c.once.Do(func() {
-		if h.hasUncachedAttrs() {
-			hs := newHandleState(context.Background(), h)
-			h.initAttrCache(hs)
-			hs.release()
-		}
-	})
+	// FIXME: think how to fix this race condition.
+	if c.chainLen >= 8 {
+		hs := newHandleState(context.Background(), h)
+		h.initAttrCache(hs)
+		hs.release()
+	}
 
 	return cache{
-		attrs:     c.attrs,
-		numGroups: c.numGroups,
-		numAttrs:  c.numAttrs,
+		parent:   h,
+		chainLen: c.chainLen + 1,
 	}
 }
 
 // ---
 
-var levels = [numLevels]slog.Level{slog.LevelDebug, slog.LevelInfo, slog.LevelWarn, slog.LevelError}
+type cacheData struct {
+	attrs     string
+	numGroups int
+	numAttrs  int
+}
+
+// ---
+
+var levels = [numLevels]slog.Level{
+	slog.LevelDebug,
+	slog.LevelInfo,
+	slog.LevelWarn,
+	slog.LevelError,
+}
 
 func levelIndex(level slog.Level) int {
 	return min(max(0, (int(level)+4)/4), numLevels-1)
