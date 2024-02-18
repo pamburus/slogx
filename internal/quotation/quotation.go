@@ -1,4 +1,4 @@
-package quoting
+package quotation
 
 import (
 	"unicode/utf8"

@@ -19,7 +19,7 @@ import (
 	"unicode/utf8"
 	"unsafe"
 
-	"github.com/pamburus/slogx/internal/quoting"
+	"github.com/pamburus/slogx/internal/quotation"
 	"github.com/pamburus/slogx/internal/stylecache"
 	"github.com/pamburus/slogx/internal/syntax"
 	"github.com/pamburus/slogx/internal/tty"
@@ -119,7 +119,7 @@ func (h *Handler) Handle(ctx context.Context, record slog.Record) error {
 	hs.messageBegin = hs.buf.Len()
 
 	if record.Message != "" {
-		if quoting.MessageContext().IsNeeded(record.Message) {
+		if quotation.MessageContext().IsNeeded(record.Message) {
 			if !h.appendQuotedString(hs, &h.stc.Message, record.Message, true) {
 				hs.addAttrToExpand(slog.String(slog.MessageKey, record.Message))
 			}
@@ -516,7 +516,7 @@ func (h *Handler) appendAutoQuotedString(hs *handleState, ss *stylecache.StringS
 	switch {
 	case len(v) == 0:
 		hs.buf.AppendString(ss.Empty)
-	case quoting.StringValueContext().IsNeeded(v):
+	case quotation.StringValueContext().IsNeeded(v):
 		return h.appendQuotedString(hs, ss, v, breakOnNewLine)
 	default:
 		hs.buf.AppendString(v)
