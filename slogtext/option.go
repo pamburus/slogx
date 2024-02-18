@@ -1,6 +1,7 @@
 package slogtext
 
 import (
+	"context"
 	"log/slog"
 	"math"
 	"time"
@@ -91,6 +92,13 @@ func WithLevelOffset(enabled bool) Option {
 	}
 }
 
+// WithLevelReplaceFunc sets the replace level function for the Handler.
+func WithLevelReplaceFunc(f LevelReplaceFunc) Option {
+	return func(o *options) {
+		o.replaceLevel = f
+	}
+}
+
 // ---
 
 // ColorSetting is a setting for the color output.
@@ -143,6 +151,9 @@ type DurationEncodeFunc func([]byte, time.Duration) []byte
 // SourceEncodeFunc is a function that encodes the source in the log message.
 type SourceEncodeFunc func([]byte, slog.Source) []byte
 
+// LevelReplaceFunc is a function that replaces the level in the log message.
+type LevelReplaceFunc func(context.Context, slog.Level) slog.Level
+
 // ---
 
 type options struct {
@@ -153,6 +164,7 @@ type options struct {
 	encodeTimeValue    TimeEncodeFunc
 	encodeDuration     DurationEncodeFunc
 	encodeSource       SourceEncodeFunc
+	replaceLevel       LevelReplaceFunc
 	includeSource      bool
 	levelOffset        bool
 	expansionThreshold ExpansionThreshold
@@ -168,6 +180,7 @@ func defaultOptions() options {
 		encodeTimeValue:    timeFormat(time.StampMilli),
 		encodeDuration:     DurationAsSeconds(),
 		encodeSource:       SourceShort(),
+		replaceLevel:       doNotReplaceLevel,
 		expansionThreshold: 32,
 		theme:              themes.Default(),
 	}
@@ -189,4 +202,8 @@ func timeFormat(layout string) TimeEncodeFunc {
 	return func(buf []byte, t time.Time) []byte {
 		return t.AppendFormat(buf, layout)
 	}
+}
+
+func doNotReplaceLevel(_ context.Context, level slog.Level) slog.Level {
+	return level
 }

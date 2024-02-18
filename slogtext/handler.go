@@ -69,8 +69,8 @@ type Handler struct {
 }
 
 // Enabled returns true if the given level is enabled.
-func (h *Handler) Enabled(_ context.Context, level slog.Level) bool {
-	return level >= h.leveler.Level()
+func (h *Handler) Enabled(ctx context.Context, level slog.Level) bool {
+	return h.replaceLevel(ctx, level) >= h.leveler.Level()
 }
 
 // Handle writes the log message to the Writer.
@@ -82,6 +82,7 @@ func (h *Handler) Handle(ctx context.Context, record slog.Record) error {
 	hs := newHandleState(ctx, h)
 	defer hs.release()
 
+	record.Level = h.replaceLevel(ctx, record.Level)
 	replace := h.replaceAttr
 
 	if !record.Time.IsZero() {
