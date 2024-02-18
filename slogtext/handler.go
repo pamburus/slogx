@@ -211,6 +211,12 @@ func (h *Handler) WithGroup(key string) slog.Handler {
 }
 
 func (h *Handler) fork() *Handler {
+	h.cache.once.Do(func() {
+		hs := newHandleState(context.Background(), h)
+		h.initAttrCache(hs)
+		hs.release()
+	})
+
 	return &Handler{
 		h.shared,
 		slices.Clip(h.attrs),
@@ -257,36 +263,42 @@ func (h *Handler) appendHandlerAttrs(hs *handleState) {
 	appended := false
 
 	h.cache.once.Do(func() {
-		if h.cache.numAttrs == len(h.attrs) && h.cache.numGroups == h.groups.len() {
-			return
-		}
-
-		pos := hs.buf.Len()
-		hs.buf.AppendString(h.cache.attrs)
-
-		begin := h.cache.numAttrs
-		for i := h.cache.numGroups; i != h.groups.len(); i++ {
-			group := h.groups.at(i)
-			end := group.i
-			for _, attr := range h.attrs[begin:end] {
-				h.appendAttr(hs, attr, group.prefixLen)
-			}
-			begin = end
-		}
-
-		for _, attr := range h.attrs[begin:] {
-			h.appendAttr(hs, attr, len(h.keyPrefix))
-		}
-
-		h.cache.attrs = hs.buf[pos:].String()
-		h.cache.numGroups = h.groups.len()
-		h.cache.numAttrs = len(h.attrs)
+		appended = h.initAttrCache(hs)
 		appended = true
 	})
 
 	if !appended && len(h.cache.attrs) != 0 {
 		hs.buf.AppendString(h.cache.attrs)
 	}
+}
+
+func (h *Handler) initAttrCache(hs *handleState) bool {
+	if h.cache.numAttrs == len(h.attrs) && h.cache.numGroups == h.groups.len() {
+		return false
+	}
+
+	pos := hs.buf.Len()
+	hs.buf.AppendString(h.cache.attrs)
+
+	begin := h.cache.numAttrs
+	for i := h.cache.numGroups; i != h.groups.len(); i++ {
+		group := h.groups.at(i)
+		end := group.i
+		for _, attr := range h.attrs[begin:end] {
+			h.appendAttr(hs, attr, group.prefixLen)
+		}
+		begin = end
+	}
+
+	for _, attr := range h.attrs[begin:] {
+		h.appendAttr(hs, attr, len(h.keyPrefix))
+	}
+
+	h.cache.attrs = hs.buf[pos:].String()
+	h.cache.numGroups = h.groups.len()
+	h.cache.numAttrs = len(h.attrs)
+
+	return true
 }
 
 func (h *Handler) appendAttr(hs *handleState, attr slog.Attr, basePrefixLen int) {
