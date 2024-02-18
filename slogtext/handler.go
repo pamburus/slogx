@@ -211,13 +211,6 @@ func (h *Handler) WithGroup(key string) slog.Handler {
 }
 
 func (h *Handler) fork() *Handler {
-	h.cache.once.Do(func() {
-		if h.hasUncachedAttrs() {
-			hs := newHandleState(context.Background(), h)
-			h.initAttrCache(hs)
-			hs.release()
-		}
-	})
 
 	return &Handler{
 		h.shared,
@@ -225,11 +218,7 @@ func (h *Handler) fork() *Handler {
 		h.groups.fork(),
 		h.groupKeys.fork(),
 		h.keyPrefix,
-		cache{
-			attrs:     h.cache.attrs,
-			numGroups: h.cache.numGroups,
-			numAttrs:  h.cache.numAttrs,
-		},
+		h.cache.fork(h),
 	}
 }
 
@@ -820,6 +809,22 @@ type cache struct {
 	numGroups int
 	numAttrs  int
 	once      sync.Once
+}
+
+func (c *cache) fork(h *Handler) cache {
+	c.once.Do(func() {
+		if h.hasUncachedAttrs() {
+			hs := newHandleState(context.Background(), h)
+			h.initAttrCache(hs)
+			hs.release()
+		}
+	})
+
+	return cache{
+		attrs:     c.attrs,
+		numGroups: c.numGroups,
+		numAttrs:  c.numAttrs,
+	}
 }
 
 // ---
