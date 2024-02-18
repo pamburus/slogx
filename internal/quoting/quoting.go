@@ -122,6 +122,8 @@ func messageExtraCheck(s string) bool {
 	switch s[0] {
 	case ' ':
 		return s[1] == ' ' && s[2] == '\t'
+	case '@':
+		return s[1] == ' '
 	case '>':
 		return s[1] == '-' && s[2] == ' '
 	}
