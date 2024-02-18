@@ -116,7 +116,7 @@ func (h *Handler) Handle(ctx context.Context, record slog.Record) error {
 
 	if record.Message != "" {
 		if quoting.MessageContext().IsNeeded(record.Message) {
-			if !h.appendQuotedString(hs, &h.stc.Message, record.Message, true) {
+			if !h.stringAppender(hs, &h.stc.Message, true).appendQuotedString(record.Message) {
 				hs.addAttrToExpand(slog.String(slog.MessageKey, record.Message))
 			}
 		} else {
@@ -233,7 +233,7 @@ func (h *Handler) appendTime(hs *handleState, value time.Time, quote bool) {
 	hs.scratch.Reset()
 	hs.scratch = h.encodeTimeValue(hs.scratch, value)
 	if quote {
-		h.appendAutoQuotedByteString(hs, &h.stc.StringValue, hs.scratch.Bytes(), false)
+		h.byteStringAppender(hs, &h.stc.StringValue, false).appendAutoQuotedString(hs.scratch)
 	} else {
 		hs.buf.AppendBytes(hs.scratch.Bytes())
 	}
@@ -243,7 +243,7 @@ func (h *Handler) appendDuration(hs *handleState, value time.Duration, quote boo
 	hs.scratch.Reset()
 	hs.scratch = h.encodeDuration(hs.scratch, value)
 	if quote {
-		h.appendAutoQuotedByteString(hs, &h.stc.StringValue, hs.scratch.Bytes(), false)
+		h.byteStringAppender(hs, &h.stc.StringValue, false).appendAutoQuotedString(hs.scratch)
 	} else {
 		hs.buf.AppendBytes(hs.scratch.Bytes())
 	}
@@ -333,7 +333,7 @@ func (h *Handler) appendKey(hs *handleState, key string, basePrefixLen int) {
 func (h *Handler) appendValue(hs *handleState, v slog.Value, quote bool, breakOnNewLine bool) bool {
 	switch v.Kind() {
 	case slog.KindString:
-		return h.appendString(hs, &h.stc.StringValue, v.String(), quote, breakOnNewLine)
+		return h.stringAppender(hs, &h.stc.StringValue, breakOnNewLine).appendString(v.String(), quote)
 	case slog.KindInt64:
 		hs.buf.AppendString(h.stc.NumberValue.Prefix)
 		hs.buf.AppendInt(v.Int64())
@@ -364,7 +364,7 @@ func (h *Handler) appendValue(hs *handleState, v slog.Value, quote bool, breakOn
 				if i != 0 {
 					hs.buf.AppendString(h.stc.MapPairSep)
 				}
-				h.appendString(hs, &h.stc.StringValue, attr.Key, quote, false)
+				h.stringAppender(hs, &h.stc.StringValue, false).appendString(attr.Key, true)
 				hs.buf.AppendString(h.stc.MapKeyValueSep)
 				h.appendValue(hs, attr.Value, true, false)
 			}
@@ -381,16 +381,16 @@ func (h *Handler) appendValue(hs *handleState, v slog.Value, quote bool, breakOn
 		case slog.Level:
 			h.appendLevelValue(hs, v)
 		case error:
-			return h.appendString(hs, &h.stc.ErrorValue, v.Error(), quote, breakOnNewLine)
+			return h.stringAppender(hs, &h.stc.ErrorValue, breakOnNewLine).appendString(v.Error(), quote)
 		case fmt.Stringer:
 			if v, ok, errorAppended := safeResolveValue(h, hs, v.String); ok {
-				return h.appendString(hs, &h.stc.StringValue, v, quote, breakOnNewLine)
+				return h.stringAppender(hs, &h.stc.StringValue, breakOnNewLine).appendString(v, quote)
 			} else {
 				return errorAppended
 			}
 		case encoding.TextMarshaler:
 			if data, ok, errorAppended := safeResolveValueErr(h, hs, v.MarshalText); ok {
-				h.appendByteString(hs, &h.stc.StringValue, data, quote, breakOnNewLine)
+				return h.byteStringAppender(hs, &h.stc.StringValue, breakOnNewLine).appendString(data, quote)
 			} else {
 				return errorAppended
 			}
@@ -413,7 +413,7 @@ func (h *Handler) appendBytesValue(hs *handleState, v []byte, quote bool, breakO
 	default:
 		fallthrough
 	case BytesFormatString:
-		return h.appendByteString(hs, &h.stc.StringValue, v, quote, breakOnNewLine)
+		h.byteStringAppender(hs, &h.stc.StringValue, breakOnNewLine).appendString(v, quote)
 	case BytesFormatHex:
 		hs.buf.AppendString(h.stc.StringValue.Quoted.Prefix)
 		hex.Encode(hs.buf.Extend(hex.EncodedLen(len(v))), v)
@@ -467,91 +467,8 @@ func (h *Handler) appendAnyValue(hs *handleState, v any, quote bool) {
 	default:
 		hs.scratch.Reset()
 		_, _ = fmt.Fprintf(&hs.scratch, "%+v", v)
-		h.appendByteString(hs, &h.stc.StringValue, hs.scratch.Bytes(), quote, false)
+		h.byteStringAppender(hs, &h.stc.StringValue, false).appendString(hs.scratch.Bytes(), quote)
 	}
-}
-
-func (h *Handler) appendString(hs *handleState, ss *stylecache.StringStyle, s string, quote bool, breakOnNewLine bool) bool {
-	switch {
-	case hs.expandingAttrs:
-		s = strings.TrimSpace(s)
-		for {
-			i := strings.IndexByte(s, '\n')
-			if i == -1 {
-				i = len(s)
-			}
-			hs.buf.AppendBytes(hs.buf[:hs.messageBegin])
-			hs.buf.AppendString(ss.Unquoted.Prefix)
-			hs.buf.AppendByte(' ')
-			hs.buf.AppendByte('\t')
-			hs.buf.AppendString(s[:i])
-			hs.buf.AppendString(ss.Unquoted.Suffix)
-			hs.buf.AppendByte('\n')
-			if i < len(s) {
-				s = s[i+1:]
-			} else {
-				break
-			}
-		}
-	case quote:
-		if s == "null" {
-			hs.buf.AppendString(ss.Null)
-		} else {
-			return h.appendAutoQuotedString(hs, ss, s, breakOnNewLine)
-		}
-	default:
-		hs.buf.AppendString(s)
-	}
-
-	return true
-}
-
-func (h *Handler) appendByteString(hs *handleState, ss *stylecache.StringStyle, s []byte, quote bool, breakOnNewLine bool) bool {
-	switch {
-	case hs.expandingAttrs:
-		s = bytes.TrimSpace(s)
-		for {
-			i := bytes.IndexByte(s, '\n')
-			if i == -1 {
-				i = len(s)
-			}
-			hs.buf.AppendBytes(hs.buf[:hs.messageBegin])
-			hs.buf.AppendString(ss.Unquoted.Prefix)
-			hs.buf.AppendByte(' ')
-			hs.buf.AppendByte('\t')
-			hs.buf.AppendBytes(s[:i])
-			hs.buf.AppendString(ss.Unquoted.Suffix)
-			hs.buf.AppendByte('\n')
-			if i < len(s) {
-				s = s[i+1:]
-			} else {
-				break
-			}
-		}
-	case quote:
-		if bytes.Equal(s, []byte("null")) {
-			hs.buf.AppendString(ss.Null)
-		} else {
-			return h.appendAutoQuotedByteString(hs, ss, s, breakOnNewLine)
-		}
-	default:
-		hs.buf.AppendBytes(s)
-	}
-
-	return true
-}
-
-func (h *Handler) appendAutoQuotedString(hs *handleState, ss *stylecache.StringStyle, v string, breakOnNewLine bool) bool {
-	switch {
-	case len(v) == 0:
-		hs.buf.AppendString(ss.Empty)
-	case quoting.StringValueContext().IsNeeded(v):
-		return h.appendQuotedString(hs, ss, v, breakOnNewLine)
-	default:
-		hs.buf.AppendString(v)
-	}
-
-	return true
 }
 
 func (h *Handler) appendUnquotedString(hs *handleState, ss *stylecache.StringStyle, v string) {
@@ -560,61 +477,16 @@ func (h *Handler) appendUnquotedString(hs *handleState, ss *stylecache.StringSty
 	hs.buf.AppendString(ss.Unquoted.Suffix)
 }
 
-func (h *Handler) appendQuotedString(hs *handleState, ss *stylecache.StringStyle, v string, breakOnNewLine bool) bool {
-	hs.buf.AppendString(ss.Quoted.Prefix)
-	done := h.appendEscapedString(hs, ss, v, breakOnNewLine)
-	hs.buf.AppendString(ss.Quoted.Suffix)
-	if !done {
-		hs.buf.TrimBackByte(' ')
-		hs.buf.AppendString(ss.Elipsis)
-	}
-
-	return done
-}
-
-func (h *Handler) appendAutoQuotedByteString(hs *handleState, ss *stylecache.StringStyle, v []byte, breakOnNewLine bool) bool {
-	switch {
-	case len(v) == 0:
-		hs.buf.AppendString(ss.Empty)
-	case quoting.StringValueContext().IsNeededBytes(v):
-		return h.appendQuotedByteString(hs, ss, v, breakOnNewLine)
-	default:
-		hs.buf.AppendBytes(v)
-	}
-
-	return true
-}
-
-func (h *Handler) appendQuotedByteString(hs *handleState, ss *stylecache.StringStyle, v []byte, breakOnNewLine bool) bool {
-	hs.buf.AppendString(ss.Quoted.Prefix)
-	done := h.appendEscapedByteString(hs, ss, v, breakOnNewLine)
-	hs.buf.AppendString(ss.Quoted.Suffix)
-	if !done {
-		hs.buf.TrimBackByte(' ')
-		hs.buf.AppendString(ss.Elipsis)
-	}
-
-	return done
-}
-
-func (h *Handler) appendEscapedString(hs *handleState, ss *stylecache.StringStyle, s string, breakOnNewLine bool) bool {
-	return h.stringAppender(hs, ss, breakOnNewLine).appendEscapedString(s)
-}
-
-func (h *Handler) appendEscapedByteString(hs *handleState, ss *stylecache.StringStyle, s []byte, breakOnNewLine bool) bool {
-	return h.byteStringAppender(hs, ss, breakOnNewLine).appendEscapedString(s)
-}
-
 func (h *Handler) stringAppender(hs *handleState, ss *stylecache.StringStyle, breakOnNewLine bool) stringAppender[string, stringAdapterString] {
-	return newStringAppender(h, hs, ss, h.resolveExpansionThreshold(breakOnNewLine), stringAdapterString{})
+	return newStringAppender(h, hs, ss, breakOnNewLine, stringAdapterString{})
 }
 
 func (h *Handler) byteStringAppender(hs *handleState, ss *stylecache.StringStyle, breakOnNewLine bool) stringAppender[[]byte, stringAdapterBytes] {
-	return newStringAppender(h, hs, ss, h.resolveExpansionThreshold(breakOnNewLine), stringAdapterBytes{})
+	return newStringAppender(h, hs, ss, breakOnNewLine, stringAdapterBytes{})
 }
 
-func (h *Handler) resolveExpansionThreshold(breakOnNewLine bool) int {
-	if !breakOnNewLine {
+func (h *Handler) resolveExpansionThreshold(hs *handleState, breakOnNewLine bool) int {
+	if !breakOnNewLine || hs.expandingAttrs {
 		return ExpandNever
 	}
 
@@ -692,11 +564,11 @@ func (h *Handler) source(pc uintptr) slog.Source {
 
 func (h *Handler) appendEncodeError(hs *handleState, err error, breakOnNewLine bool) bool {
 	if hs.expandingAttrs {
-		return h.appendString(hs, &h.stc.ErrorValue, err.Error(), false, false)
+		return h.stringAppender(hs, &h.stc.ErrorValue, false).appendString(err.Error(), false)
 	}
 
 	hs.buf.AppendString(h.stc.EvalError.Prefix)
-	done := h.appendQuotedString(hs, &h.stc.ErrorValue, err.Error(), true)
+	done := h.stringAppender(hs, &h.stc.ErrorValue, true).appendQuotedString(err.Error())
 	hs.buf.AppendString(h.stc.EvalError.Suffix)
 	return done
 }
@@ -706,11 +578,11 @@ func (h *Handler) appendEncodePanic(hs *handleState, p any, breakOnNewLine bool)
 	_, _ = fmt.Fprintf(&hs.scratch, "%v", p)
 
 	if hs.expandingAttrs {
-		return h.appendByteString(hs, &h.stc.ErrorValue, hs.scratch, false, false)
+		return h.byteStringAppender(hs, &h.stc.ErrorValue, false).appendString(hs.scratch.Bytes(), false)
 	}
 
 	hs.buf.AppendString(h.stc.EvalError.Prefix)
-	done := h.appendQuotedByteString(hs, &h.stc.ErrorValue, hs.scratch, !hs.expandingAttrs)
+	done := h.byteStringAppender(hs, &h.stc.ErrorValue, true).appendQuotedString(hs.scratch)
 	hs.buf.AppendString(h.stc.EvalError.Suffix)
 
 	return done
@@ -821,7 +693,9 @@ func safeResolveValueErr[T any](h *Handler, hs *handleState, resolve func() (T, 
 
 // ---
 
-func newStringAppender[T string | []byte, SA stringAdapter[T]](h *Handler, hs *handleState, ss *stylecache.StringStyle, threshold int, sa SA) stringAppender[T, SA] {
+func newStringAppender[T string | []byte, SA stringAdapter[T]](h *Handler, hs *handleState, ss *stylecache.StringStyle, breakOnNewLine bool, sa SA) stringAppender[T, SA] {
+	threshold := h.resolveExpansionThreshold(hs, breakOnNewLine)
+
 	return stringAppender[T, SA]{h, hs, ss, threshold, sa}
 }
 
@@ -831,6 +705,66 @@ type stringAppender[T string | []byte, SA stringAdapter[T]] struct {
 	ss        *stylecache.StringStyle
 	threshold int
 	sa        SA
+}
+
+func (a stringAppender[T, SA]) appendString(s T, quote bool) bool {
+	switch {
+	case a.hs.expandingAttrs:
+		s = a.sa.trimSpace(s)
+		for {
+			i := a.sa.indexByte(s, '\n')
+			if i == -1 {
+				i = len(s)
+			}
+			a.hs.buf.AppendBytes(a.hs.buf[:a.hs.messageBegin])
+			a.hs.buf.AppendString(a.ss.Unquoted.Prefix)
+			a.hs.buf.AppendByte(' ')
+			a.hs.buf.AppendByte('\t')
+			a.sa.appendString(&a.hs.buf, s[:i])
+			a.hs.buf.AppendString(a.ss.Unquoted.Suffix)
+			a.hs.buf.AppendByte('\n')
+			if i < len(s) {
+				s = s[i+1:]
+			} else {
+				break
+			}
+		}
+	case quote:
+		if a.sa.isNullText(s) {
+			a.hs.buf.AppendString(a.ss.Null)
+		} else {
+			return a.appendAutoQuotedString(s)
+		}
+	default:
+		a.sa.appendString(&a.hs.buf, s)
+	}
+
+	return true
+}
+
+func (a stringAppender[T, SA]) appendAutoQuotedString(v T) bool {
+	switch {
+	case len(v) == 0:
+		a.hs.buf.AppendString(a.ss.Empty)
+	case a.sa.quotingNeeded(v, quoting.StringValueContext()):
+		return a.appendQuotedString(v)
+	default:
+		a.sa.appendString(&a.hs.buf, v)
+	}
+
+	return true
+}
+
+func (a stringAppender[T, SA]) appendQuotedString(v T) bool {
+	a.hs.buf.AppendString(a.ss.Quoted.Prefix)
+	done := a.appendEscapedString(v)
+	a.hs.buf.AppendString(a.ss.Quoted.Suffix)
+	if !done {
+		a.hs.buf.TrimBackByte(' ')
+		a.hs.buf.AppendString(a.ss.Elipsis)
+	}
+
+	return done
 }
 
 func (a stringAppender[T, SA]) appendEscapedString(s T) bool {
@@ -893,6 +827,10 @@ func (a stringAppender[T, SA]) appendEscapedString(s T) bool {
 type stringAdapter[T string | []byte] interface {
 	appendString(buf *buffer, s T)
 	decodeRune(s T) (rune, int)
+	quotingNeeded(s T, ctx quoting.Context) bool
+	trimSpace(s T) T
+	indexByte(s T, c byte) int
+	isNullText(s T) bool
 }
 
 // ---
@@ -907,6 +845,22 @@ func (stringAdapterString) decodeRune(s string) (rune, int) {
 	return utf8.DecodeRuneInString(s)
 }
 
+func (stringAdapterString) quotingNeeded(s string, ctx quoting.Context) bool {
+	return ctx.IsNeeded(s)
+}
+
+func (stringAdapterString) trimSpace(s string) string {
+	return strings.TrimSpace(s)
+}
+
+func (stringAdapterString) indexByte(s string, c byte) int {
+	return strings.IndexByte(s, c)
+}
+
+func (stringAdapterString) isNullText(s string) bool {
+	return s == "null"
+}
+
 // ---
 
 type stringAdapterBytes struct{}
@@ -917,6 +871,22 @@ func (stringAdapterBytes) appendString(buf *buffer, s []byte) {
 
 func (stringAdapterBytes) decodeRune(s []byte) (rune, int) {
 	return utf8.DecodeRune(s)
+}
+
+func (stringAdapterBytes) quotingNeeded(s []byte, ctx quoting.Context) bool {
+	return ctx.IsNeededBytes(s)
+}
+
+func (stringAdapterBytes) trimSpace(s []byte) []byte {
+	return bytes.TrimSpace(s)
+}
+
+func (stringAdapterBytes) indexByte(s []byte, c byte) int {
+	return bytes.IndexByte(s, c)
+}
+
+func (stringAdapterBytes) isNullText(s []byte) bool {
+	return bytes.Equal(s, []byte("null"))
 }
 
 // ---
