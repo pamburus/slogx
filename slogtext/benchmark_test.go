@@ -4,6 +4,7 @@ import (
 	"context"
 	"io"
 	"log/slog"
+	"slices"
 	"testing"
 	"time"
 
@@ -102,54 +103,69 @@ func BenchmarkHandler(b *testing.B) {
 		}
 	}
 
-	testSuite := func(b *testing.B, do func(testFunc) func(*testing.B)) {
-		b.Run("HandleAfterWithAttrs", do(withAttrs(testHandle)))
-		b.Run("WithAttrsFirst", do(testWithAttrs))
-		b.Run("WithAttrsSecond", do(withAttrs(testWithAttrs)))
-		b.Run("WithAttrsAndHandle", do(testWithAttrsAndHandle))
-		b.Run("WithGroupFirst", do(testWithGroup))
-		b.Run("WithGroupSecond", do(withGroup("first-group", testWithGroup)))
-		b.Run("WithGroupSecondAndHandle", do(withGroup("first-group", testWithGroupAndHandle)))
+	testSuite := func(do func(testFunc) func(*testing.B)) func(*testing.B) {
+		return func(b *testing.B) {
+			b.Run("HandleAfterWithAttrs", do(withAttrs(testHandle)))
+			b.Run("WithAttrsFirst", do(testWithAttrs))
+			b.Run("WithAttrsSecond", do(withAttrs(testWithAttrs)))
+			b.Run("WithAttrsAndHandle", do(testWithAttrsAndHandle))
+			b.Run("WithGroupFirst", do(testWithGroup))
+			b.Run("WithGroupSecond", do(withGroup("first-group", testWithGroup)))
+			b.Run("WithGroupSecondAndHandle", do(withGroup("first-group", testWithGroupAndHandle)))
+		}
 	}
 
-	b.Run("slogtext.Handler", func(b *testing.B) {
-		options := []slogtext.Option{
-			slogtext.WithSource(false),
-		}
+	b.Run("slogtext/Handler", func(b *testing.B) {
+		test := func(options ...slogtext.Option) func(test testFunc) func(b *testing.B) {
+			return func(test testFunc) func(b *testing.B) {
+				newHandler := func(color slogtext.ColorSetting) slog.Handler {
+					return slogtext.NewHandler(io.Discard, append(slices.Clip(options),
+						slogtext.WithColor(color),
+						slogtext.WithTheme(themes.Tint()),
+					)...)
+				}
 
-		withColorVariants := func(test testFunc) func(b *testing.B) {
-			return func(b *testing.B) {
-				b.Run("WithColor", test(
-					slogtext.NewHandler(io.Discard, append(options,
-						slogtext.WithTheme(themes.Tint()),
-						slogtext.WithColor(slogtext.ColorAlways),
-					)...),
-				))
-				b.Run("WithoutColor", test(
-					slogtext.NewHandler(io.Discard, append(options,
-						slogtext.WithTheme(themes.Tint()),
-						slogtext.WithColor(slogtext.ColorNever),
-					)...),
-				))
+				return func(b *testing.B) {
+					b.Run("WithoutColor", test(newHandler(slogtext.ColorNever)))
+					b.Run("WithColor", test(newHandler(slogtext.ColorAlways)))
+				}
 			}
 		}
 
-		testSuite(b, withColorVariants)
+		b.Run("WithoutSource", testSuite(test(slogtext.WithSource(false))))
+		b.Run("WithSource", testSuite(test(slogtext.WithSource(true))))
 	})
 
-	b.Run("slog.TextHandler", func(b *testing.B) {
-		withFormatVariants := func(test testFunc) func(b *testing.B) {
-			return func(b *testing.B) {
-				b.Run("JSON", test(
-					slog.NewJSONHandler(io.Discard, &slog.HandlerOptions{}).WithAttrs(commonAttrs),
-				))
-				b.Run("Text", test(
-					slog.NewTextHandler(io.Discard, &slog.HandlerOptions{}).WithAttrs(commonAttrs),
-				))
+	b.Run("slog", func(b *testing.B) {
+		type handlerNewFunc func(addSource bool) slog.Handler
+
+		newJSONHandler := func(addSource bool) slog.Handler {
+			return slog.NewJSONHandler(io.Discard, &slog.HandlerOptions{
+				AddSource: addSource,
+			}).WithAttrs(commonAttrs)
+		}
+
+		newTextHandler := func(addSource bool) slog.Handler {
+			return slog.NewTextHandler(io.Discard, &slog.HandlerOptions{
+				AddSource: addSource,
+			}).WithAttrs(commonAttrs)
+		}
+
+		test := func(fn handlerNewFunc, addSource bool) func(test testFunc) func(b *testing.B) {
+			return func(test testFunc) func(b *testing.B) {
+				return test(fn(addSource))
 			}
 		}
 
-		testSuite(b, withFormatVariants)
+		withSourceVariants := func(fn handlerNewFunc) func(b *testing.B) {
+			return func(b *testing.B) {
+				b.Run("WithoutSource", testSuite(test(fn, false)))
+				b.Run("WithSource", testSuite(test(fn, true)))
+			}
+		}
+
+		b.Run("JSONHandler", withSourceVariants(newJSONHandler))
+		b.Run("TextHandler", withSourceVariants(newTextHandler))
 	})
 }
 
