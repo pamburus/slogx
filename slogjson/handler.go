@@ -16,8 +16,6 @@ import (
 	"time"
 	"unicode/utf8"
 	"unsafe"
-
-	"github.com/pamburus/slogx/slogtext/themes"
 )
 
 // NewHandler returns a new slog.Handler with the given Writer and
@@ -724,7 +722,7 @@ func levelIndex(level slog.Level) int {
 // ---
 
 const hexDigits = "0123456789abcdef"
-const numLevels = themes.NumLevels
+const numLevels = 4
 const numEmbeddedGroups = 4
 const groupCloseChain = "}}}}}}}}}}}}}}}}"
 
