@@ -26,6 +26,7 @@ type handleState struct {
 	attrsToExpand  []attrToExpand
 	messageBegin   int
 	expandingAttrs bool
+	pcs            [1]uintptr
 }
 
 func (s *handleState) release() {
@@ -45,6 +46,7 @@ func (s *handleState) release() {
 	s.attrsToExpand = s.attrsToExpand[:0]
 	s.expandingAttrs = false
 	s.messageBegin = 0
+	s.pcs[0] = 0
 
 	handleStatePool.Put(s)
 }

@@ -152,7 +152,7 @@ func (h *Handler) Handle(ctx context.Context, record slog.Record) error {
 	})
 
 	if h.includeSource {
-		src := h.source(record.PC)
+		src := h.source(hs, record.PC)
 		if src.File != "" {
 			hs.buf.AppendString(h.stc.Source.Prefix)
 			h.appendSource(hs, src)
@@ -671,14 +671,14 @@ func (h *Handler) appendLevelValue(hs *handleState, level slog.Level) {
 	hs.buf.AppendString(h.stc.LevelValue[i].Suffix)
 }
 
-func (h *Handler) source(pc uintptr) slog.Source {
-	fs := runtime.CallersFrames([]uintptr{pc})
-	f, _ := fs.Next()
+func (h *Handler) source(hs *handleState, pc uintptr) slog.Source {
+	hs.pcs[0] = pc
+	frame, _ := runtime.CallersFrames(hs.pcs[:]).Next()
 
 	return slog.Source{
-		Function: f.Function,
-		File:     f.File,
-		Line:     f.Line,
+		Function: frame.Function,
+		File:     frame.File,
+		Line:     frame.Line,
 	}
 }
 
