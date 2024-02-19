@@ -1,4 +1,4 @@
-// Package slogtext provides slog.Handler implementation that output log messages in a textual human-readable form with colors.
+// Package slogjson provides a slog.Handler implementation that writes log messages in JSON format.
 package slogjson
 
 import (
@@ -66,33 +66,7 @@ func (h *Handler) Handle(ctx context.Context, record slog.Record) error {
 	replace := h.replaceAttr
 
 	if !record.Time.IsZero() {
-		value := record.Time.Round(0)
-		if replace != nil {
-			attr := replace(nil, slog.Time(slog.TimeKey, value))
-			if attr.Key != "" {
-				attr.Value = attr.Value.Resolve()
-				switch attr.Value.Kind() {
-				case slog.KindTime:
-					value = attr.Value.Time()
-				case slog.KindString:
-					h.appendString(hs, attr.Value.String())
-				case slog.KindUint64:
-					value = time.Unix(0, int64(attr.Value.Uint64()))
-				case slog.KindInt64:
-					value = time.Unix(0, attr.Value.Int64())
-				default:
-					value = time.Time{}
-				}
-			} else {
-				value = time.Time{}
-			}
-		}
-		if !value.IsZero() {
-			value := h.encodeTimestamp(value)
-			if value.Kind() != slog.KindTime {
-				h.appendAttr(hs, slog.Attr{Key: slog.TimeKey, Value: value})
-			}
-		}
+		h.appendTime(hs, record.Time)
 	}
 
 	h.appendString(hs, slog.LevelKey)
@@ -184,11 +158,39 @@ func (h *Handler) fork() *Handler {
 	}
 }
 func (h *Handler) appendTime(hs *handleState, value time.Time) {
-	resolvedValue := h.encodeTimestamp(value).Resolve()
-	if resolvedValue.Kind() != slog.KindTime {
-		h.appendValue(hs, resolvedValue)
-	} else {
-		hs.buf.AppendString("null")
+	value = value.Round(0)
+	attr := slog.Time(slog.TimeKey, value)
+
+	if h.replaceAttr != nil {
+		if ra := h.replaceAttr(nil, slog.Time(slog.TimeKey, value)); ra.Key != "" {
+			ra.Value = ra.Value.Resolve()
+			attr = ra
+		}
+	}
+
+	if attr.Value.Kind() != slog.KindTime {
+		h.appendAttr(hs, attr)
+
+		return
+	}
+
+	value = attr.Value.Time()
+	if value.IsZero() {
+		return
+	}
+
+	hs.scratch.Reset()
+	buf, encodedValue := h.encodeTimestamp(hs.scratch, value)
+	if len(buf) != 0 {
+		h.appendAttr(hs, slog.String(attr.Key, unsafe.String(&buf[0], len(buf))))
+		runtime.KeepAlive(&buf)
+
+		return
+	}
+
+	attr.Value = encodedValue.Resolve()
+	if attr.Value.Kind() != slog.KindTime {
+		h.appendAttr(hs, attr)
 	}
 }
 
@@ -298,10 +300,10 @@ func (h *Handler) appendKey(hs *handleState, key string) {
 	h.appendString(hs, key)
 }
 
-func (h *Handler) appendValue(hs *handleState, v slog.Value) bool {
+func (h *Handler) appendValue(hs *handleState, v slog.Value) {
 	switch v.Kind() {
 	case slog.KindString:
-		return h.appendString(hs, v.String())
+		h.appendString(hs, v.String())
 	case slog.KindInt64:
 		hs.buf.AppendInt(v.Int64())
 	case slog.KindUint64:
@@ -333,10 +335,10 @@ func (h *Handler) appendValue(hs *handleState, v slog.Value) bool {
 		case slog.Level:
 			h.appendLevel(hs, v)
 		case error:
-			return h.appendString(hs, v.Error())
+			h.appendString(hs, v.Error())
 		case fmt.Stringer:
 			if v, ok := safeResolveValue(h, hs, v.String); ok {
-				return h.appendString(hs, v)
+				h.appendString(hs, v)
 			}
 		case encoding.TextMarshaler:
 			if data, ok := safeResolveValueErr(h, hs, v.MarshalText); ok {
@@ -348,28 +350,24 @@ func (h *Handler) appendValue(hs *handleState, v slog.Value) bool {
 		case slog.Source:
 			h.appendSource(hs, v)
 		case []byte:
-			return h.appendBytesValue(hs, v)
+			h.appendBytesValue(hs, v)
 		default:
 			h.appendAnyValue(hs, v)
 		}
 	}
-
-	return true
 }
 
-func (h *Handler) appendBytesValue(hs *handleState, v []byte) bool {
+func (h *Handler) appendBytesValue(hs *handleState, v []byte) {
 	switch h.bytesFormat {
 	default:
 		fallthrough
 	case BytesFormatString:
-		return h.appendString(hs, unsafe.String(&v[0], len(v)))
+		h.appendString(hs, unsafe.String(&v[0], len(v)))
 	case BytesFormatHex:
 		hex.Encode(hs.buf.Extend(hex.EncodedLen(len(v))), v)
 	case BytesFormatBase64:
 		base64.StdEncoding.Encode(hs.buf.Extend(base64.StdEncoding.EncodedLen(len(v))), v)
 	}
-
-	return true
 }
 
 func (h *Handler) appendAnyValue(hs *handleState, v any) {
@@ -418,7 +416,7 @@ func (h *Handler) appendAnyValue(hs *handleState, v any) {
 	}
 }
 
-func (h *Handler) appendString(hs *handleState, s string) bool {
+func (h *Handler) appendString(hs *handleState, s string) {
 	hs.buf.AppendByte('"')
 	p := 0
 
@@ -469,8 +467,6 @@ func (h *Handler) appendString(hs *handleState, s string) bool {
 
 	hs.buf.AppendString(s[p:])
 	hs.buf.AppendByte('"')
-
-	return true
 }
 
 func (h *Handler) appendSource(hs *handleState, source slog.Source) {
@@ -495,6 +491,7 @@ func (h *Handler) appendLevel(hs *handleState, level slog.Level) {
 }
 
 func (h *Handler) source(hs *handleState, pc uintptr) slog.Source {
+	hs.pcs[0] = pc
 	frame, _ := runtime.CallersFrames(hs.pcs[:]).Next()
 
 	return slog.Source{

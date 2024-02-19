@@ -82,7 +82,7 @@ type BytesFormat int
 
 const (
 	BytesFormatString = iota // BytesFormatString outputs the bytes as a string.
-	BytesFormatHex           // BytesFormatHex outputs the bytes as a hex string.
+	BytesFormatHex           // BytesFormatHex outputs the bytes as a hexadecimal string.
 	BytesFormatBase64        // BytesFormatBase64 outputs the bytes as a base64 string.
 )
 
@@ -92,7 +92,13 @@ const (
 type AttrReplaceFunc func([]string, slog.Attr) slog.Attr
 
 // TimeEncodeFunc is a function that encodes the time in the log message.
-type TimeEncodeFunc func(time.Time) slog.Value
+// TimeEncodeFunc can either encode time as a string into the given buffer,
+// or return a slog.Value representing the time in one of the following kinds:
+// KindFloat64, KindInt64, KindString, KindUint64.
+// If the returned buffer is nil, the time is encoded as a slog.Value.
+// If the returned buffer is nil or empty and slog.Value is not of the kinds
+// listed above, the time attribute is dropped.
+type TimeEncodeFunc func([]byte, time.Time) ([]byte, slog.Value)
 
 // DurationEncodeFunc is a function that encodes the duration in the log message.
 type DurationEncodeFunc func(time.Duration) slog.Value
@@ -142,8 +148,8 @@ func (o options) with(opts []Option) options {
 // ---
 
 func timeFormat(layout string) TimeEncodeFunc {
-	return func(t time.Time) slog.Value {
-		return slog.StringValue(t.Format(layout))
+	return func(buf []byte, value time.Time) ([]byte, slog.Value) {
+		return value.AppendFormat(buf, layout), slog.Value{}
 	}
 }
 
