@@ -101,44 +101,52 @@ func BenchmarkHandler(b *testing.B) {
 		}
 	}
 
-	testSuite := func(b *testing.B, do func(testFunc) func(*testing.B)) {
-		b.Run("HandleAfterWithAttrs", do(withAttrs(testHandle)))
-		b.Run("WithAttrsFirst", do(testWithAttrs))
-		b.Run("WithAttrsSecond", do(withAttrs(testWithAttrs)))
-		b.Run("WithAttrsAndHandle", do(testWithAttrsAndHandle))
-		b.Run("WithGroupFirst", do(testWithGroup))
-		b.Run("WithGroupSecond", do(withGroup("first-group", testWithGroup)))
-		b.Run("WithGroupSecondAndHandle", do(withGroup("first-group", testWithGroupAndHandle)))
+	testSuite := func(do func(testFunc) func(*testing.B)) func(*testing.B) {
+		return func(b *testing.B) {
+			b.Run("HandleAfterWithAttrs", do(withAttrs(testHandle)))
+			b.Run("WithAttrsFirst", do(testWithAttrs))
+			b.Run("WithAttrsSecond", do(withAttrs(testWithAttrs)))
+			b.Run("WithAttrsAndHandle", do(testWithAttrsAndHandle))
+			b.Run("WithGroupFirst", do(testWithGroup))
+			b.Run("WithGroupSecond", do(withGroup("first-group", testWithGroup)))
+			b.Run("WithGroupSecondAndHandle", do(withGroup("first-group", testWithGroupAndHandle)))
+		}
 	}
 
-	b.Run("slogjson.Handler", func(b *testing.B) {
-		withSourceVariants := func(test testFunc) func(b *testing.B) {
-			return func(b *testing.B) {
-				b.Run("WithSource", test(
-					slogjson.NewHandler(io.Discard, slogjson.WithSource(true)),
-				))
-				b.Run("WithoutSource", test(
-					slogjson.NewHandler(io.Discard, slogjson.WithSource(false)),
-				))
+	b.Run("slogjson/Handler", func(b *testing.B) {
+		test := func(options ...slogjson.Option) func(test testFunc) func(b *testing.B) {
+			return func(test testFunc) func(b *testing.B) {
+				return test(slogjson.NewHandler(io.Discard, options...))
 			}
 		}
 
-		testSuite(b, withSourceVariants)
+		b.Run("WithoutSource", testSuite(test(slogjson.WithSource(false))))
+		b.Run("WithSource", testSuite(test(slogjson.WithSource(true))))
 	})
 
 	b.Run("slog", func(b *testing.B) {
-		withFormatVariants := func(test testFunc) func(b *testing.B) {
-			return func(b *testing.B) {
-				b.Run("slog.JSONHandler", test(
-					slog.NewJSONHandler(io.Discard, &slog.HandlerOptions{}).WithAttrs(commonAttrs),
-				))
-				b.Run("slog.TextHandler", test(
-					slog.NewTextHandler(io.Discard, &slog.HandlerOptions{}).WithAttrs(commonAttrs),
-				))
+		type handlerNewFunc func(addSource bool) slog.Handler
+
+		newJSONHandler := func(addSource bool) slog.Handler {
+			return slog.NewJSONHandler(io.Discard, &slog.HandlerOptions{
+				AddSource: addSource,
+			}).WithAttrs(commonAttrs)
+		}
+
+		test := func(fn handlerNewFunc, addSource bool) func(test testFunc) func(b *testing.B) {
+			return func(test testFunc) func(b *testing.B) {
+				return test(fn(addSource))
 			}
 		}
 
-		testSuite(b, withFormatVariants)
+		withSourceVariants := func(fn handlerNewFunc) func(b *testing.B) {
+			return func(b *testing.B) {
+				b.Run("WithoutSource", testSuite(test(fn, false)))
+				b.Run("WithSource", testSuite(test(fn, true)))
+			}
+		}
+
+		b.Run("JSONHandler", withSourceVariants(newJSONHandler))
 	})
 }
 
