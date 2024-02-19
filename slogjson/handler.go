@@ -128,11 +128,8 @@ func (h *Handler) Handle(ctx context.Context, record slog.Record) error {
 		}
 	}
 
-	if hs.buf.Back() == ',' {
-		hs.buf.SetBack('}')
-	} else {
-		hs.buf.AppendByte('}')
-	}
+	hs.buf.TrimBackByte(',')
+	h.closeGroups(hs, len(hs.groups)+1)
 
 	h.mu.Lock()
 	defer h.mu.Unlock()
@@ -236,6 +233,7 @@ func (h *Handler) initAttrCache(hs *handleState) bool {
 	for i := h.cache.numGroups; i != h.groups.len(); i++ {
 		group := h.groups.at(i)
 		end := group.i
+		h.openGroup(hs, h.groupKeys.at(i))
 		for _, attr := range h.attrs[begin:end] {
 			h.appendAttr(hs, attr)
 		}
@@ -251,6 +249,20 @@ func (h *Handler) initAttrCache(hs *handleState) bool {
 	h.cache.numAttrs = len(h.attrs)
 
 	return true
+}
+
+func (h *Handler) openGroup(hs *handleState, key string) {
+	h.appendString(hs, key)
+	hs.buf.AppendByte(':')
+	hs.buf.AppendByte('{')
+}
+
+func (h *Handler) closeGroups(hs *handleState, n int) {
+	for n > 0 {
+		k := min(n, len(groupCloseChain))
+		hs.buf.AppendString(groupCloseChain[:k])
+		n -= k
+	}
 }
 
 func (h *Handler) appendAttr(hs *handleState, attr slog.Attr) {
@@ -529,6 +541,14 @@ func (g *groupKeys) append(key string) {
 	}
 }
 
+func (g *groupKeys) at(i int) string {
+	if i < g.headLen {
+		return g.head[i]
+	}
+
+	return g.tail[i-g.headLen]
+}
+
 func (g *groupKeys) collect(buf []string) []string {
 	buf = append(buf, g.head[:g.headLen]...)
 	buf = append(buf, g.tail...)
@@ -662,5 +682,6 @@ func levelIndex(level slog.Level) int {
 const hexDigits = "0123456789abcdef"
 const numLevels = themes.NumLevels
 const numEmbeddedGroups = 4
+const groupCloseChain = "}}}}}}}}}}}}}}}}"
 
 var _ slog.Handler = (*Handler)(nil)
