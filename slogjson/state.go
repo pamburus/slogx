@@ -16,11 +16,11 @@ func newHandleState(ctx context.Context, h *Handler) *handleState {
 }
 
 type handleState struct {
-	ctx            context.Context
-	buf            buffer
-	scratch        buffer
-	groupPrefixLen int
-	groups         []string
+	ctx     context.Context
+	buf     buffer
+	scratch buffer
+	groups  []string
+	pcs     [1]uintptr
 }
 
 func (s *handleState) release() {
@@ -35,7 +35,7 @@ func (s *handleState) release() {
 	s.buf.Reset()
 	s.scratch.Reset()
 	s.groups = s.groups[:0]
-	s.groupPrefixLen = 0
+	s.pcs[0] = 0
 
 	handleStatePool.Put(s)
 }

@@ -118,7 +118,7 @@ func BenchmarkHandler(b *testing.B) {
 					slogjson.NewHandler(io.Discard, slogjson.WithSource(true)),
 				))
 				b.Run("WithoutSource", test(
-					slogjson.NewHandler(io.Discard, slogjson.WithSource(true)),
+					slogjson.NewHandler(io.Discard, slogjson.WithSource(false)),
 				))
 			}
 		}

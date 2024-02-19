@@ -120,7 +120,7 @@ func (h *Handler) Handle(ctx context.Context, record slog.Record) error {
 	})
 
 	if h.includeSource {
-		src := h.source(record.PC)
+		src := h.source(hs, record.PC)
 		if src.File != "" {
 			h.appendString(hs, slog.SourceKey)
 			hs.buf.AppendByte(':')
@@ -494,14 +494,13 @@ func (h *Handler) appendLevel(hs *handleState, level slog.Level) {
 	hs.buf.AppendByte('"')
 }
 
-func (h *Handler) source(pc uintptr) slog.Source {
-	fs := runtime.CallersFrames([]uintptr{pc})
-	f, _ := fs.Next()
+func (h *Handler) source(hs *handleState, pc uintptr) slog.Source {
+	frame, _ := runtime.CallersFrames(hs.pcs[:]).Next()
 
 	return slog.Source{
-		Function: f.Function,
-		File:     f.File,
-		Line:     f.Line,
+		Function: frame.Function,
+		File:     frame.File,
+		Line:     frame.Line,
 	}
 }
 
