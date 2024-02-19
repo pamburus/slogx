@@ -93,18 +93,33 @@ type AttrReplaceFunc func([]string, slog.Attr) slog.Attr
 
 // TimeEncodeFunc is a function that encodes the time in the log message.
 // TimeEncodeFunc can either encode time as a string into the given buffer,
-// or return a slog.Value representing the time in one of the following kinds:
-// KindFloat64, KindInt64, KindString, KindUint64.
+// or return a slog.Value representing the time in a value of kind
+// KindString, KindFloat64, KindInt64, KindUint64, or KindGroup containing only attributes
+// of kind KindString, KindFloat64, KindInt64, or KindUint64.
 // If the returned buffer is nil, the time is encoded as a slog.Value.
-// If the returned buffer is nil or empty and slog.Value is not of the kinds
-// listed above, the time attribute is dropped.
+// If the returned buffer is nil or empty and slog.Value has any kind except listed above,
+// the time attribute is replaced by null.
 type TimeEncodeFunc func([]byte, time.Time) ([]byte, slog.Value)
 
 // DurationEncodeFunc is a function that encodes the duration in the log message.
-type DurationEncodeFunc func(time.Duration) slog.Value
+// DurationEncodeFunc can either encode duration as a string into the given buffer,
+// or return a slog.Value representing the duration in a value of kind
+// KindString, KindFloat64, KindInt64, KindUint64, or KindGroup containing only attributes
+// of kind KindString, KindFloat64, KindInt64, or KindUint64.
+// If the returned buffer is nil, the duration is encoded as a slog.Value.
+// If the returned buffer is nil or empty and slog.Value has any kind except listed above,
+// the duration attribute is replaced by null.
+type DurationEncodeFunc func([]byte, time.Duration) ([]byte, slog.Value)
 
 // SourceEncodeFunc is a function that encodes the source in the log message.
-type SourceEncodeFunc func(slog.Source) slog.Value
+// SourceEncodeFunc can either encode source as a string into the given buffer,
+// or return a slog.Value representing the source in a value of kind
+// KindString, KindFloat64, KindInt64, KindUint64, or KindGroup containing only attributes
+// of kind KindString, KindFloat64, KindInt64, or KindUint64.
+// If the returned buffer is nil, the source is encoded as a slog.Value.
+// If the returned buffer is nil or empty and slog.Value has any kind except listed above,
+// the source attribute is replaced by null.
+type SourceEncodeFunc func([]byte, slog.Source) ([]byte, slog.Value)
 
 // LevelReplaceFunc is a function that replaces the level in the log message.
 type LevelReplaceFunc func(context.Context, slog.Level) slog.Level

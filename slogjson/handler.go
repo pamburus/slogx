@@ -66,7 +66,7 @@ func (h *Handler) Handle(ctx context.Context, record slog.Record) error {
 	replace := h.replaceAttr
 
 	if !record.Time.IsZero() {
-		h.appendTime(hs, record.Time)
+		h.appendTimeAttr(hs, record.Time)
 	}
 
 	h.appendString(hs, slog.LevelKey)
@@ -157,7 +157,7 @@ func (h *Handler) fork() *Handler {
 		h.cache.fork(h),
 	}
 }
-func (h *Handler) appendTime(hs *handleState, value time.Time) {
+func (h *Handler) appendTimeAttr(hs *handleState, value time.Time) {
 	value = value.Round(0)
 	attr := slog.Time(slog.TimeKey, value)
 
@@ -179,28 +179,58 @@ func (h *Handler) appendTime(hs *handleState, value time.Time) {
 		return
 	}
 
+	h.appendKey(hs, attr.Key)
+	hs.buf.AppendByte(':')
+
 	hs.scratch.Reset()
 	buf, encodedValue := h.encodeTimestamp(hs.scratch, value)
 	if len(buf) != 0 {
-		h.appendAttr(hs, slog.String(attr.Key, unsafe.String(&buf[0], len(buf))))
-		runtime.KeepAlive(&buf)
-
-		return
+		h.appendStringValueFromBytes(hs, buf)
+	} else {
+		h.appendEncodedValue(hs, encodedValue)
 	}
+	hs.buf.AppendByte(',')
+}
 
-	attr.Value = encodedValue.Resolve()
-	if attr.Value.Kind() != slog.KindTime {
-		h.appendAttr(hs, attr)
+func (h *Handler) appendTimeValue(hs *handleState, value time.Time) {
+	hs.scratch.Reset()
+	buf, encodedValue := h.encodeTimeValue(hs.scratch, value)
+	if len(buf) != 0 {
+		h.appendStringValueFromBytes(hs, buf)
+	} else {
+		h.appendEncodedValue(hs, encodedValue)
 	}
 }
 
-func (h *Handler) appendDuration(hs *handleState, value time.Duration) {
-	resolvedValue := h.encodeDuration(value).Resolve()
-	if resolvedValue.Kind() != slog.KindDuration {
-		h.appendValue(hs, resolvedValue)
+func (h *Handler) appendDurationValue(hs *handleState, value time.Duration) {
+	hs.scratch.Reset()
+	buf, encodedValue := h.encodeDuration(hs.scratch, value)
+	if buf != nil {
+		h.appendStringValueFromBytes(hs, buf)
 	} else {
-		hs.buf.AppendString("null")
+		h.appendEncodedValue(hs, encodedValue)
 	}
+}
+
+func (h *Handler) appendEncodedValue(hs *handleState, value slog.Value) {
+	value = value.Resolve()
+	switch value.Kind() {
+	case slog.KindGroup:
+		if !isSafePlainGroup(value.Group()) {
+			break
+		}
+		fallthrough
+	case slog.KindString, slog.KindInt64, slog.KindFloat64, slog.KindUint64:
+		h.appendValue(hs, value)
+		return
+	default:
+	}
+	hs.buf.AppendString("null")
+}
+
+func (h *Handler) appendStringValueFromBytes(hs *handleState, value []byte) {
+	h.appendString(hs, unsafe.String(&value[0], len(value)))
+	runtime.KeepAlive(&value)
 }
 
 func (h *Handler) appendHandlerAttrs(hs *handleState) {
@@ -313,7 +343,7 @@ func (h *Handler) appendValue(hs *handleState, v slog.Value) {
 	case slog.KindBool:
 		hs.buf.AppendBool(v.Bool())
 	case slog.KindDuration:
-		h.appendDuration(hs, v.Duration())
+		h.appendDurationValue(hs, v.Duration())
 	case slog.KindGroup:
 		attrs := v.Group()
 		hs.buf.AppendByte('{')
@@ -327,7 +357,7 @@ func (h *Handler) appendValue(hs *handleState, v slog.Value) {
 		}
 		hs.buf.AppendByte('}')
 	case slog.KindTime:
-		h.appendTime(hs, v.Time())
+		h.appendTimeValue(hs, v.Time())
 	case slog.KindAny:
 		switch v := v.Any().(type) {
 		case nil:
@@ -470,7 +500,13 @@ func (h *Handler) appendString(hs *handleState, s string) {
 }
 
 func (h *Handler) appendSource(hs *handleState, source slog.Source) {
-	h.appendValue(hs, h.encodeSource(source))
+	hs.scratch.Reset()
+	buf, encodedValue := h.encodeSource(hs.scratch, source)
+	if len(buf) != 0 {
+		h.appendStringValueFromBytes(hs, buf)
+	} else {
+		h.appendEncodedValue(hs, encodedValue)
+	}
 }
 
 func (h *Handler) appendLevel(hs *handleState, level slog.Level) {
@@ -620,6 +656,18 @@ func safeResolveValueErr[T any](h *Handler, hs *handleState, resolve func() (T, 
 	value, err = resolve()
 
 	return value, err == nil
+}
+
+func isSafePlainGroup(attrs []slog.Attr) bool {
+	for _, attr := range attrs {
+		switch attr.Value.Kind() {
+		case slog.KindString, slog.KindInt64, slog.KindUint64, slog.KindFloat64, slog.KindBool:
+		default:
+			return false
+		}
+	}
+
+	return true
 }
 
 // ---

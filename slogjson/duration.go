@@ -2,8 +2,9 @@ package slogjson
 
 import (
 	"log/slog"
-	"strconv"
 	"time"
+
+	"github.com/pamburus/slogx/internal/valenc"
 )
 
 // ---
@@ -11,15 +12,15 @@ import (
 // DurationAsText returns a DurationEncodeFunc that encodes time.Duration values as text with dynamic units.
 // For example, it can be '1ms', '1s', '2m32s'.
 func DurationAsText() DurationEncodeFunc {
-	return func(v time.Duration) slog.Value {
-		return slog.StringValue(v.String())
+	return func(_ []byte, v time.Duration) ([]byte, slog.Value) {
+		return nil, slog.StringValue(v.String())
 	}
 }
 
 // DurationAsSeconds returns a DurationEncodeFunc that encodes time.Duration values as floating point number of seconds.
 func DurationAsSeconds() DurationEncodeFunc {
-	return func(v time.Duration) slog.Value {
-		return slog.Float64Value(v.Seconds())
+	return func(_ []byte, v time.Duration) ([]byte, slog.Value) {
+		return nil, slog.Float64Value(v.Seconds())
 	}
 }
 
@@ -32,39 +33,8 @@ func DurationAsSeconds() DurationEncodeFunc {
 func DurationAsHMS(options ...DurationOption) DurationEncodeFunc {
 	opts := defaultDurationOptions().With(options)
 
-	return func(v time.Duration) slog.Value {
-		var bufStorage [12]byte
-		buf := bufStorage[:0]
-
-		if v < 0 {
-			v = v.Abs()
-			buf = append(buf, '-')
-		}
-
-		seconds := v % time.Minute
-		minutes := int64((v % time.Hour) / time.Minute)
-		hours := int64(v / time.Hour)
-
-		if hours < 10 {
-			buf = append(buf, '0')
-		}
-		buf = strconv.AppendInt(buf, hours, 10)
-
-		buf = append(buf, ':')
-
-		if minutes < 10 {
-			buf = append(buf, '0')
-		}
-		buf = strconv.AppendInt(buf, minutes, 10)
-
-		buf = append(buf, ':')
-
-		if seconds < 10*time.Second {
-			buf = append(buf, '0')
-		}
-		buf = strconv.AppendFloat(buf, seconds.Seconds(), 'f', int(opts.precision), 64)
-
-		return slog.StringValue(string(buf))
+	return func(buf []byte, v time.Duration) ([]byte, slog.Value) {
+		return valenc.DurationAsHMS(buf, v, int(opts.precision)), slog.Value{}
 	}
 }
 
