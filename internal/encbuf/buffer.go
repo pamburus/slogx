@@ -1,18 +1,10 @@
+// Package encbuf provides a buffer convenient for encoding.
 package encbuf
 
 import (
 	"slices"
 	"strconv"
-	"sync"
 )
-
-// DefaultBufferSize is the default size of the buffer.
-const DefaultBufferSize = 1024
-
-// New creates a new instance of Buffer or gets existing one from a pool.
-func New() *Buffer {
-	return bufPool.Get().(*Buffer)
-}
 
 // Buffer is a helping wrapper for byte slice.
 type Buffer []byte
@@ -134,23 +126,4 @@ func (b *Buffer) AppendFloat64(n float64) {
 // given Buffer.
 func (b *Buffer) AppendBool(n bool) {
 	*b = strconv.AppendBool(*b, n)
-}
-
-// Free returns the Buffer to the pool.
-func (b *Buffer) Free() {
-	const maxBufferSize = 64 << 10
-	if b.Cap() <= maxBufferSize {
-		b.Reset()
-		bufPool.Put(b)
-	}
-}
-
-// ---
-
-var bufPool = sync.Pool{
-	New: func() any {
-		buf := Buffer(make([]byte, 0, DefaultBufferSize))
-
-		return &buf
-	},
 }

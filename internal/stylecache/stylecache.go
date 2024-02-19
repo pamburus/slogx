@@ -9,6 +9,7 @@ import (
 
 // ---
 
+// New creates a new style cache with the given theme and configuration.
 func New(theme *Theme, cfg *Config) *StyleCache {
 	c := &StyleCache{
 		Config:              *cfg,
@@ -46,6 +47,7 @@ func New(theme *Theme, cfg *Config) *StyleCache {
 	return c
 }
 
+// StyleCache represents a cache of styles and styled elements.
 type StyleCache struct {
 	Config              Config
 	Time                Style

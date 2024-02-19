@@ -1,6 +1,7 @@
+// Package syntax provides syntax-related constants and types.
 package syntax
 
-// ExpansionMessageSuffix is the suffix for expansion messages.
+// ExpandedMessageSuffix is the suffix for expansion messages.
 const ExpandedMessageSuffix = " >>"
 
 // ExpandedKeyPrefix is the prefix for expanded keys.
@@ -20,8 +21,8 @@ const (
 	LevelLabelError LevelLabel = "ERR"
 )
 
-// LevelLabelOverflow is the offset overflow indicator for logging levels.
+// LevelLabelOffsetOverflow is the offset overflow indicator for logging levels.
 const LevelLabelOffsetOverflow = '>'
 
-// LevelLabelUnderflow is the offset underflow indicator for logging levels.
+// LevelLabelOffsetUnderflow is the offset underflow indicator for logging levels.
 const LevelLabelOffsetUnderflow = '<'

@@ -1,3 +1,4 @@
+// Package valenc contains encoding functions for various types.
 package valenc
 
 import (
@@ -5,6 +6,7 @@ import (
 	"time"
 )
 
+// DurationAsHMS encodes the duration as hours, minutes, and seconds.
 func DurationAsHMS(buf []byte, value time.Duration, precision int) []byte {
 	if value < 0 {
 		value = value.Abs()
@@ -32,7 +34,7 @@ func DurationAsHMS(buf []byte, value time.Duration, precision int) []byte {
 	if seconds < 10*time.Second {
 		buf = append(buf, '0')
 	}
-	buf = strconv.AppendFloat(buf, seconds.Seconds(), 'f', int(precision), 64)
+	buf = strconv.AppendFloat(buf, seconds.Seconds(), 'f', precision, 64)
 
 	return buf
 }

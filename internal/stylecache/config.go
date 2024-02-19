@@ -1,5 +1,7 @@
+// Package stylecache contanis helpers for preparing and using cache of styles and styled elements.
 package stylecache
 
+// Config represents the configuration of the style cache.
 type Config struct {
 	KeyValueSep     string
 	ArrayBegin      string
@@ -17,6 +19,7 @@ type Config struct {
 	LevelNames      [NumLevels]string
 }
 
+// DefaultConfig returns the default configuration of the style cache.
 func DefaultConfig() *Config {
 	return &Config{
 		KeyValueSep:     "=",

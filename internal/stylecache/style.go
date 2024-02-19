@@ -2,6 +2,7 @@ package stylecache
 
 // ---
 
+// Style represents a pair of strings that can be used to style text.
 type Style struct {
 	Prefix string
 	Suffix string
@@ -34,6 +35,7 @@ func (s Style) render(inner string) string {
 
 // ---
 
+// StringStyle represents a set of styles for string values.
 type StringStyle struct {
 	Unquoted Style
 	Quoted   Style
@@ -60,6 +62,7 @@ func (s StringStyle) ws() StringStyle {
 
 // ---
 
+// Escape represents a set of styled escape sequences for string value escaping.
 type Escape struct {
 	Style     Style
 	Tab       string

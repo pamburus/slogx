@@ -1,3 +1,4 @@
+// Package stripansi provides a function to remove all ANSI escape sequences from a string.
 package stripansi
 
 import (

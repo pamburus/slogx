@@ -1,3 +1,4 @@
+// Package quotation provides quoting helpers for log messages and string values.
 package quotation
 
 import (
