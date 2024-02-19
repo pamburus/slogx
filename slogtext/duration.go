@@ -3,6 +3,8 @@ package slogtext
 import (
 	"strconv"
 	"time"
+
+	"github.com/pamburus/slogx/internal/valenc"
 )
 
 // ---
@@ -34,35 +36,7 @@ func DurationAsHMS(options ...DurationOption) DurationEncodeFunc {
 	opts := defaultDurationOptions().With(options)
 
 	return func(buf []byte, v time.Duration) []byte {
-		if v < 0 {
-			v = v.Abs()
-			buf = append(buf, '-')
-		}
-
-		seconds := v % time.Minute
-		minutes := int64((v % time.Hour) / time.Minute)
-		hours := int64(v / time.Hour)
-
-		if hours < 10 {
-			buf = append(buf, '0')
-		}
-		buf = strconv.AppendInt(buf, hours, 10)
-
-		buf = append(buf, ':')
-
-		if minutes < 10 {
-			buf = append(buf, '0')
-		}
-		buf = strconv.AppendInt(buf, minutes, 10)
-
-		buf = append(buf, ':')
-
-		if seconds < 10*time.Second {
-			buf = append(buf, '0')
-		}
-		buf = strconv.AppendFloat(buf, seconds.Seconds(), 'f', int(opts.precision), 64)
-
-		return buf
+		return valenc.DurationAsHMS(buf, v, int(opts.precision))
 	}
 }
 
