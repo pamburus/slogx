@@ -2,6 +2,7 @@ package slogtext
 
 import (
 	"context"
+	"io"
 	"log/slog"
 	"math"
 	"time"
@@ -22,7 +23,7 @@ func WithLevel(level slog.Leveler) Option {
 // WithColor sets the color setting for the Handler.
 func WithColor(setting ColorSetting) Option {
 	return func(o *options) {
-		o.color = setting
+		o.enableColor = setting
 	}
 }
 
@@ -102,13 +103,17 @@ func WithLevelReplaceFunc(f LevelReplaceFunc) Option {
 // ---
 
 // ColorSetting is a setting for the color output.
-type ColorSetting int
+type ColorSetting func(io.Writer) bool
 
-const (
-	ColorAuto   ColorSetting = iota // ColorAuto enables color output if the output is a terminal.
-	ColorNever                      // ColorNever disables color output.
-	ColorAlways                     // ColorAlways enables color output.
-)
+// ColorAlways enables color output.
+func ColorAlways(io.Writer) bool {
+	return true
+}
+
+// ColorNever disables color output.
+func ColorNever(io.Writer) bool {
+	return false
+}
 
 // ---
 
@@ -158,7 +163,7 @@ type LevelReplaceFunc func(context.Context, slog.Level) slog.Level
 
 type options struct {
 	leveler            slog.Leveler
-	color              ColorSetting
+	enableColor        ColorSetting
 	replaceAttr        AttrReplaceFunc
 	encodeTimestamp    TimeEncodeFunc
 	encodeTimeValue    TimeEncodeFunc
@@ -175,7 +180,7 @@ type options struct {
 func defaultOptions() options {
 	return options{
 		leveler:            slog.LevelInfo,
-		color:              ColorAuto,
+		enableColor:        ColorNever,
 		encodeTimestamp:    timeFormat(time.StampMilli),
 		encodeTimeValue:    timeFormat(time.StampMilli),
 		encodeDuration:     DurationAsSeconds(),

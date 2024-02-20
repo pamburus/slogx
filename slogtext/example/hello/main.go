@@ -9,6 +9,7 @@ import (
 	"runtime"
 	"runtime/debug"
 
+	"github.com/pamburus/slogx/ansitty"
 	"github.com/pamburus/slogx/slogc"
 	"github.com/pamburus/slogx/slogtext"
 	"github.com/pamburus/slogx/slogtext/themes"
@@ -20,6 +21,7 @@ func main() {
 		slogtext.WithLevel(slog.LevelDebug),
 		slogtext.WithSource(true),
 		slogtext.WithTheme(themes.Fancy()),
+		slogtext.WithColor(ansitty.Enable),
 	)
 
 	// Create logger and set it as default.

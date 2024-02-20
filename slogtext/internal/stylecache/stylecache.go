@@ -3,7 +3,7 @@ package stylecache
 import (
 	"strings"
 
-	"github.com/pamburus/slogx/internal/syntax"
+	"github.com/pamburus/slogx/slogtext/internal/syntax"
 	"github.com/pamburus/slogx/slogtext/themes"
 )
 

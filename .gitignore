@@ -17,8 +17,8 @@
 # Log files
 *.log
 
-# Go workspace file
-go.work
+# Go workspace checksum file
+go.work.sum
 
 # VS Code files
 .vscode

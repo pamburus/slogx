@@ -1,4 +1,4 @@
-package tty
+package ansitty
 
 import (
 	"syscall"
@@ -16,14 +16,14 @@ const (
 )
 
 // enableSeqTTY enables terminal sequence handling in Windows.
-func enableSeqTTY(fd uintptr, flag bool) error {
+func setEnabled(fd uintptr, enabled bool) bool {
 	var mode uint32
 	err := syscall.GetConsoleMode(syscall.Handle(fd), &mode)
 	if err != nil {
-		return err
+		return false
 	}
 
-	if flag {
+	if enabled {
 		mode |= enableVirtualTerminalProcessing
 	} else {
 		mode &= ^enableVirtualTerminalProcessing
@@ -31,8 +31,8 @@ func enableSeqTTY(fd uintptr, flag bool) error {
 
 	r, _, errno := setConsoleMode.Call(fd, uintptr(mode))
 	if r == 0 {
-		return errno
+		return false
 	}
 
-	return nil
+	return true
 }

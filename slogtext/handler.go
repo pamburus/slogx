@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
-	"os"
 	"reflect"
 	"runtime"
 	"slices"
@@ -19,10 +18,9 @@ import (
 	"unicode/utf8"
 	"unsafe"
 
-	"github.com/pamburus/slogx/internal/quotation"
-	"github.com/pamburus/slogx/internal/stylecache"
-	"github.com/pamburus/slogx/internal/syntax"
-	"github.com/pamburus/slogx/internal/tty"
+	"github.com/pamburus/slogx/slogtext/internal/quotation"
+	"github.com/pamburus/slogx/slogtext/internal/stylecache"
+	"github.com/pamburus/slogx/slogtext/internal/syntax"
 	"github.com/pamburus/slogx/slogtext/themes"
 )
 
@@ -31,23 +29,15 @@ import (
 func NewHandler(writer io.Writer, options ...Option) *Handler {
 	opts := defaultOptions().with(options)
 
-	if opts.color == ColorAuto {
-		if f, ok := writer.(*os.File); ok {
-			if tty.EnableSeqTTY(f, true) {
-				opts.color = ColorAlways
-			} else {
-				opts.color = ColorNever
-			}
-		}
-	}
-
-	if opts.color == ColorNever {
+	color := opts.enableColor(writer)
+	if !color {
 		opts.theme = opts.theme.Plain()
 	}
 
 	return &Handler{
 		shared: &shared{
 			opts,
+			color,
 			*stylecache.New(&opts.theme, stylecache.DefaultConfig()),
 			sync.Mutex{},
 			writer,
@@ -712,6 +702,7 @@ func (h *Handler) appendEvalPanic(hs *handleState, p any) bool {
 
 type shared struct {
 	options
+	color  bool
 	stc    stylecache.StyleCache
 	mu     sync.Mutex
 	writer io.Writer
