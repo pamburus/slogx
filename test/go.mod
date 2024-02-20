@@ -7,6 +7,4 @@ require (
 	github.com/pamburus/slogx v0.1.0
 )
 
-require golang.org/x/sys v0.17.0 // indirect
-
 replace github.com/pamburus/slogx => ..

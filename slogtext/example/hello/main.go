@@ -9,7 +9,7 @@ import (
 	"runtime"
 	"runtime/debug"
 
-	"github.com/pamburus/slogx/ansitty"
+	"github.com/pamburus/ansitty"
 	"github.com/pamburus/slogx/slogc"
 	"github.com/pamburus/slogx/slogtext"
 	"github.com/pamburus/slogx/slogtext/themes"
@@ -17,7 +17,8 @@ import (
 
 func main() {
 	// Create handler.
-	var handler slog.Handler = slogtext.NewHandler(os.Stdout,
+	var handler slog.Handler = slogtext.NewHandler(
+		os.Stdout,
 		slogtext.WithLevel(slog.LevelDebug),
 		slogtext.WithSource(true),
 		slogtext.WithTheme(themes.Fancy()),
