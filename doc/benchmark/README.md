@@ -26,7 +26,7 @@ Values are in nanoseconds per operation.
 
 ![Benchmark](logger/benchmark-lt-always.svg)
 
-## Benchmarks of usage context.Context with slogc package instead of slofx.Logger
+## Benchmarks of usage context.Context with slogc package instead of slogx.Logger
 
 Performance comparison of [slogc](https://pkg.go.dev/github.com/pamburus/slogx/slogc) usage against [slogx.Logger](https://pkg.go.dev/github.com/pamburus/slogx#Logger) with optimal usage of [WithLongTerm](https://pkg.go.dev/github.com/pamburus/slogx#Logger.WithLongTerm) calls.
 Values are in nanoseconds per operation.
