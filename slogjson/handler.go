@@ -226,6 +226,12 @@ func (h *Handler) appendEncodedValue(hs *handleState, value slog.Value) {
 	hs.buf.AppendString("null")
 }
 
+func (h *Handler) appendFormattedValue(hs *handleState, format string, args ...any) {
+	hs.scratch.Reset()
+	_, _ = fmt.Fprintf(&hs.scratch, format, args...)
+	h.appendStringValueFromBytes(hs, hs.scratch)
+}
+
 func (h *Handler) appendStringValueFromBytes(hs *handleState, value []byte) {
 	h.appendString(hs, unsafe.String(&value[0], len(value)))
 	runtime.KeepAlive(&value)
@@ -428,9 +434,7 @@ func (h *Handler) appendAnyValue(hs *handleState, v any) {
 				if k.Kind() == reflect.String {
 					h.appendString(hs, k.String())
 				} else {
-					hs.scratch.Reset()
-					_, _ = fmt.Fprintf(&hs.scratch, "%v", k.Interface())
-					h.appendString(hs, unsafe.String(&hs.scratch[0], hs.scratch.Len()))
+					h.appendFormattedValue(hs, "%v", k.Interface())
 				}
 				hs.buf.AppendByte(':')
 				h.appendValue(hs, slog.AnyValue(rv.MapIndex(k).Interface()))
@@ -438,9 +442,7 @@ func (h *Handler) appendAnyValue(hs *handleState, v any) {
 			hs.buf.AppendByte('}')
 		}
 	default:
-		hs.scratch.Reset()
-		_, _ = fmt.Fprintf(&hs.scratch, "%v", v)
-		h.appendString(hs, unsafe.String(&hs.scratch[0], len(hs.scratch)))
+		h.appendFormattedValue(hs, "%v", v)
 	}
 }
 
@@ -536,14 +538,11 @@ func (h *Handler) source(hs *handleState, pc uintptr) slog.Source {
 }
 
 func (h *Handler) appendEvalError(hs *handleState, err error) {
-	h.appendString(hs, err.Error())
+	h.appendFormattedValue(hs, "![ERROR: %v]", err)
 }
 
 func (h *Handler) appendEvalPanic(hs *handleState, p any) {
-	hs.scratch.Reset()
-	_, _ = fmt.Fprintf(&hs.scratch, "%v", p)
-
-	h.appendString(hs, unsafe.String(&hs.scratch[0], len(hs.scratch)))
+	h.appendFormattedValue(hs, "![PANIC: %v]", p)
 }
 
 // ---
