@@ -2,5 +2,6 @@ go 1.22.0
 
 use (
 	.
+	./cmd/slogxfmt
 	./slogtext/example
 )
