@@ -14,6 +14,7 @@ func New(theme *Theme, cfg *Config) *StyleCache {
 	c := &StyleCache{
 		Config:              *cfg,
 		Time:                st(theme.Time).ws(),
+		LoggerName:          st(theme.LoggerName).ws(),
 		Message:             sst(theme.Message).ws(),
 		Key:                 st(theme.Key).append(st(theme.KeyValueSep).render(cfg.KeyValueSep)),
 		ExpandedKey:         st(theme.ExpandedKey).prepend(st(theme.ExpandedKeySign).render(syntax.ExpandedKeyPrefix)),
@@ -53,6 +54,7 @@ type StyleCache struct {
 	Time                Style
 	LevelLabelStyle     [NumLevels]Style
 	LevelLabel          [NumLevels]string
+	LoggerName          Style
 	Message             StringStyle
 	Key                 Style
 	ExpandedKey         Style

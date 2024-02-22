@@ -12,6 +12,7 @@ const NumLevels = 4
 type Theme struct {
 	Time                Item
 	Level               LevelItem
+	LoggerName          Item
 	Message             StringItem
 	Key                 Item
 	KeyValueSep         Item
@@ -37,6 +38,7 @@ func (t Theme) Plain() Theme {
 	return Theme{
 		Time:                t.Time.Plain(),
 		Level:               t.Level.Plain(),
+		LoggerName:          t.LoggerName.Plain(),
 		Message:             t.Message.Plain(),
 		Key:                 t.Key.Plain(),
 		KeyValueSep:         t.KeyValueSep.Plain(),

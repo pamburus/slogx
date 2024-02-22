@@ -26,3 +26,6 @@ const LevelLabelOffsetOverflow = '>'
 
 // LevelLabelOffsetUnderflow is the offset underflow indicator for logging levels.
 const LevelLabelOffsetUnderflow = '<'
+
+// LoggerNameMessageSeparator is the separator between the logger name and the message.
+const LoggerNameMessageSeparator = ':'

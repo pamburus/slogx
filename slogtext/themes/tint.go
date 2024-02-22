@@ -14,6 +14,10 @@ func Tint() Theme {
 			Prefix: "\x1b[2m",
 			Suffix: "\x1b[m",
 		},
+		LoggerName: Item{
+			Prefix: "\x1b[2m",
+			Suffix: "\x1b[m",
+		},
 		Message: StringItem{
 			Escape: Item{
 				Prefix: "\x1b[2m",
