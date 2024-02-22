@@ -211,6 +211,7 @@ func (h *Handler) Handle(ctx context.Context, record slog.Record) error {
 			hs.buf.AppendString(attr.Key)
 			hs.buf.AppendString(h.stc.ExpandedKey.Suffix)
 			hs.buf.AppendByte('\n')
+			h.prepareToAppendValue(hs)
 			h.appendValue(hs, attr.Value, false, false)
 		}
 	}
@@ -219,7 +220,11 @@ func (h *Handler) Handle(ctx context.Context, record slog.Record) error {
 		return nil
 	}
 
-	hs.buf.SetBack('\n')
+	if hs.buf.Back() == ' ' {
+		hs.buf.SetBack('\n')
+	} else {
+		hs.buf.AppendByte('\n')
+	}
 
 	h.mu.Lock()
 	defer h.mu.Unlock()
@@ -363,6 +368,15 @@ func (h *Handler) initAttrCache(hs *handleState) bool {
 	return true
 }
 
+func (h *Handler) prepareToAppendValue(hs *handleState) {
+	if !hs.expandingAttrs {
+		return
+	}
+
+	hs.buf.AppendBytes(hs.buf[:hs.messageBegin])
+	hs.buf.AppendString(syntax.ExpandedValuePrefix)
+}
+
 func (h *Handler) appendAttr(hs *handleState, attr slog.Attr, basePrefixLen int) {
 	attr.Value = attr.Value.Resolve()
 	if rep := h.replaceAttr; rep != nil && attr.Value.Kind() != slog.KindGroup {
@@ -398,6 +412,12 @@ func (h *Handler) appendAttr(hs *handleState, attr slog.Attr, basePrefixLen int)
 			hs.groups = hs.groups[:len(hs.groups)-1]
 		}
 	} else {
+		if hs.buf.Len()-hs.messageBegin > 120 {
+			hs.addAttrToExpand(attr)
+
+			return
+		}
+
 		h.appendKey(hs, attr.Key, basePrefixLen)
 		if !h.appendValue(hs, attr.Value, true, !hs.expandingAttrs) {
 			hs.addAttrToExpand(attr)
@@ -563,14 +583,13 @@ func (h *Handler) appendString(hs *handleState, ss *stylecache.StringStyle, s st
 			if i == -1 {
 				i = len(s)
 			}
-			hs.buf.AppendBytes(hs.buf[:hs.messageBegin])
-			hs.buf.AppendString(syntax.ExpandedValuePrefix)
 			hs.buf.AppendString(ss.Unquoted.Prefix)
 			hs.buf.AppendString(s[:i])
 			hs.buf.AppendString(ss.Unquoted.Suffix)
-			hs.buf.AppendByte('\n')
 			if i < len(s) {
 				s = s[i+1:]
+				hs.buf.AppendByte('\n')
+				h.prepareToAppendValue(hs)
 			} else {
 				break
 			}
