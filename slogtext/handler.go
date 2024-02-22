@@ -350,6 +350,10 @@ func (h *Handler) appendAttr(hs *handleState, attr slog.Attr, basePrefixLen int)
 		attr.Value = attr.Value.Resolve()
 	}
 
+	if attr.Equal(slog.Attr{}) {
+		return
+	}
+
 	if h.sourceKey != "" && attr.Key == h.sourceKey {
 		hs.sourceAttr = attr
 
@@ -357,10 +361,6 @@ func (h *Handler) appendAttr(hs *handleState, attr slog.Attr, basePrefixLen int)
 	}
 
 	if h.loggerNameKey != "" && attr.Key == h.loggerNameKey {
-		return
-	}
-
-	if attr.Equal(slog.Attr{}) {
 		return
 	}
 
