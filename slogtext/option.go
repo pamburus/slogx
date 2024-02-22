@@ -41,6 +41,13 @@ func WithSource(include bool) Option {
 	}
 }
 
+// WithSourceKey sets the source key for the Handler.
+func WithSourceKey(key string) Option {
+	return func(o *options) {
+		o.sourceKey = key
+	}
+}
+
 // WithMultilineExpansion sets whether to expand multiline strings in the log message.
 func WithMultilineExpansion(setting ExpansionThreshold) Option {
 	return func(o *options) {
@@ -171,6 +178,7 @@ type options struct {
 	encodeSource       SourceEncodeFunc
 	replaceLevel       LevelReplaceFunc
 	includeSource      bool
+	sourceKey          string
 	levelOffset        bool
 	expansionThreshold ExpansionThreshold
 	bytesFormat        BytesFormat
@@ -185,6 +193,7 @@ func defaultOptions() options {
 		encodeTimeValue:    timeFormat(time.StampMilli),
 		encodeDuration:     DurationAsSeconds(),
 		encodeSource:       SourceShort(),
+		sourceKey:          slog.SourceKey,
 		replaceLevel:       doNotReplaceLevel,
 		expansionThreshold: 32,
 		theme:              themes.Default(),

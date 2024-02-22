@@ -142,7 +142,23 @@ func (h *Handler) Handle(ctx context.Context, record slog.Record) error {
 	})
 
 	if h.includeSource {
-		src := h.source(hs, record.PC)
+		var src slog.Source
+
+		if hs.sourceAttr.Key != "" {
+			switch hs.sourceAttr.Value.Kind() {
+			case slog.KindString:
+				hs.buf.AppendString(h.stc.Source.Prefix)
+				hs.buf.AppendString(hs.sourceAttr.Value.String())
+				hs.buf.AppendString(h.stc.Source.Suffix)
+			case slog.KindAny:
+				if v, ok := hs.sourceAttr.Value.Any().(slog.Source); ok {
+					src = v
+				}
+			}
+		} else if record.PC != 0 {
+			src = h.source(hs, record.PC)
+		}
+
 		if src.File != "" {
 			hs.buf.AppendString(h.stc.Source.Prefix)
 			h.appendSource(hs, src)
@@ -307,6 +323,12 @@ func (h *Handler) appendAttr(hs *handleState, attr slog.Attr, basePrefixLen int)
 	if rep := h.replaceAttr; rep != nil && attr.Value.Kind() != slog.KindGroup {
 		attr = rep(hs.groups, attr)
 		attr.Value = attr.Value.Resolve()
+	}
+
+	if h.sourceKey != "" && attr.Key == h.sourceKey {
+		hs.sourceAttr = attr
+
+		return
 	}
 
 	if attr.Equal(slog.Attr{}) {

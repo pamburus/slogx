@@ -27,6 +27,7 @@ type handleState struct {
 	messageBegin   int
 	expandingAttrs bool
 	pcs            [1]uintptr
+	sourceAttr     slog.Attr
 }
 
 func (s *handleState) release() {
@@ -47,6 +48,7 @@ func (s *handleState) release() {
 	s.expandingAttrs = false
 	s.messageBegin = 0
 	s.pcs[0] = 0
+	s.sourceAttr = slog.Attr{}
 
 	handleStatePool.Put(s)
 }
