@@ -1,22 +1,30 @@
 package main
 
 import (
-	"bufio"
 	"context"
-	"encoding/json"
-	"errors"
 	"log"
 	"log/slog"
 	"os"
-	"strconv"
-	"time"
+	"runtime"
+	"sync"
 
+	"github.com/pamburus/slogx/cmd/slogxfmt/databuf"
+	"github.com/pamburus/slogx/cmd/slogxfmt/processing"
+	"github.com/pamburus/slogx/cmd/slogxfmt/scanning"
 	"github.com/pamburus/slogx/slogtext"
 	"github.com/pamburus/slogx/slogtext/themes"
 )
 
 func main() {
-	input := bufio.NewReader(os.Stdin)
+	handler := slogtext.NewHandler(os.Stderr,
+		slogtext.WithLevel(slog.LevelInfo),
+		slogtext.WithColor(slogtext.ColorAlways),
+		slogtext.WithSource(true),
+		slogtext.WithTheme(themes.Fancy()),
+	)
+	slog.SetDefault(slog.New(handler))
+
+	input := os.Stdin
 	if len(os.Args) > 1 {
 		file, err := os.Open(os.Args[1])
 		if err != nil {
@@ -24,7 +32,125 @@ func main() {
 		}
 		defer file.Close()
 
-		input = bufio.NewReader(file)
+		input = file
+	}
+
+	concurrency := runtime.NumCPU()
+	sch := make(chan *databuf.Buffer, concurrency)
+	ichs := make([]chan *databuf.Buffer, concurrency)
+	ochs := make([]chan *databuf.Buffer, concurrency)
+
+	for i := 0; i < concurrency; i++ {
+		ichs[i] = make(chan *databuf.Buffer, 1)
+		ochs[i] = make(chan *databuf.Buffer, 1)
+	}
+
+	ctx := context.Background()
+
+	var wg sync.WaitGroup
+	defer wg.Wait()
+
+	// Scan input and send blocks to the dispatcher.
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+
+		slog.Debug("scanner: started")
+		defer slog.Debug("scanner: stopped")
+
+		err := scanning.Scan(ctx, input, sch)
+		if err != nil {
+			log.Fatal(err)
+		}
+	}()
+
+	// Dispatch blocks to workers.
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		defer func() {
+			for i := 0; i < concurrency; i++ {
+				close(ichs[i])
+			}
+		}()
+
+		slog.Debug("dispatcher: started")
+		defer slog.Debug("dispatcher: stopped")
+
+		for i := 0; ; i = (i + 1) % concurrency {
+			// slog.Debug("dispatcher: reading input block")
+			select {
+			case <-ctx.Done():
+				// slog.Debug("dispatcher: context done")
+				return
+			case block, ok := <-sch:
+				if !ok {
+					// slog.Debug("dispatcher: end of stream")
+					return
+				}
+				// slog.Debug("dispatcher: sending output block", slog.Int("id", i), slog.Int("len", block.Len()), slog.Int("cap", block.Cap()))
+				select {
+				case <-ctx.Done():
+					// slog.Debug("dispatcher: context done")
+					return
+				case ichs[i] <- block:
+					// slog.Debug("dispatcher: sent output block", slog.Int("id", i))
+				}
+			}
+		}
+	}()
+
+	// Spawn workers.
+	for i := 0; i < concurrency; i++ {
+		i := i
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+
+			// slog.Debug("worker: started", slog.Int("id", i))
+			// defer slog.Debug("worker: stopped", slog.Int("id", i))
+
+			err := processing.Run(ctx, ichs[i], ochs[i])
+			if err != nil {
+				log.Fatal(err)
+			}
+		}()
+	}
+
+	// Collect results from workers and write to output.
+	for i := 0; ; i = (i + 1) % concurrency {
+		// slog.Debug("writer: reading block from channel", slog.Int("id", i))
+		select {
+		case <-ctx.Done():
+			// slog.Debug("writer: context done")
+			return
+		case block, ok := <-ochs[i]:
+			if !ok {
+				// slog.Debug("writer: end of stream")
+				return
+			}
+			// slog.Debug("writer: writing block to stdout", slog.Int("id", i), slog.Int("len", block.Len()), slog.Int("cap", block.Cap()))
+			_, err := os.Stdout.Write(*block)
+			if err != nil {
+				log.Fatal(err)
+			}
+			block.Free()
+		}
+	}
+}
+
+/*
+
+func main() {
+	input := os.Stdin
+	if len(os.Args) > 1 {
+		file, err := os.Open(os.Args[1])
+		if err != nil {
+			log.Fatal(err)
+		}
+		defer file.Close()
+
+		input = file
 	}
 
 	handler := slogtext.NewHandler(os.Stdout,
@@ -190,3 +316,4 @@ func (v *value) UnmarshalJSON(data []byte) error {
 
 	return nil
 }
+*/
