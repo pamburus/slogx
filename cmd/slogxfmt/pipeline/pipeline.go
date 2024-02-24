@@ -69,10 +69,12 @@ func (p *Pipeline) Run(ctx context.Context, input io.Reader, output io.Writer) (
 	sch := make(chan *Buffer, concurrency)
 	ichs := make([]chan *Buffer, concurrency)
 	ochs := make([]chan *Buffer, concurrency)
+	wcchs := make([]chan struct{}, concurrency)
 
 	for i := 0; i < concurrency; i++ {
 		ichs[i] = make(chan *Buffer, 1)
 		ochs[i] = make(chan *Buffer, 1)
+		wcchs[i] = make(chan struct{})
 	}
 
 	var wg sync.WaitGroup
@@ -122,7 +124,9 @@ func (p *Pipeline) Run(ctx context.Context, input io.Reader, output io.Writer) (
 					// slog.Debug("dispatcher: context done")
 					return
 				case ichs[i] <- block:
-					// slog.Debug("dispatcher: sent output block", slog.Int("id", i))
+				// slog.Debug("dispatcher: sent output block", slog.Int("id", i))
+				case <-wcchs[i]:
+					continue
 				}
 			}
 		}
@@ -134,9 +138,10 @@ func (p *Pipeline) Run(ctx context.Context, input io.Reader, output io.Writer) (
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
+			defer close(wcchs[i])
 
-			// slog.Debug("worker: started", slog.Int("id", i))
-			// defer slog.Debug("worker: stopped", slog.Int("id", i))
+			slog.Debug("worker: started", slog.Int("id", i))
+			defer slog.Debug("worker: stopped", slog.Int("id", i))
 			processor := processing.NewProcessor(p.parser, p.handler)
 			err := processor.Run(ctx, ichs[i], ochs[i])
 			if err != nil {

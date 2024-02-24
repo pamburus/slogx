@@ -2,8 +2,8 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"io"
-	"log"
 	"log/slog"
 	"os"
 
@@ -24,18 +24,26 @@ type args struct {
 }
 
 func main() {
+	err := run()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error: %v\n", err)
+		os.Exit(1)
+	}
+}
+
+func run() error {
 	args := args{}
 	arg.MustParse(&args)
 
 	input, closeInputs, err := openInputs(args.Inputs)
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 	defer closeInputs()
 
 	output, closeOutput, err := openOutput(args.Output)
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 	defer closeOutput()
 
@@ -65,22 +73,34 @@ func main() {
 		level = slog.LevelError
 	}
 
-	handler := func(w io.Writer) slog.Handler {
-		return slogtext.NewHandler(w,
-			slogtext.WithLevel(level),
-			slogtext.WithColor(color),
-			slogtext.WithSource(true),
-			slogtext.WithTheme(themes.Fancy()),
-			slogtext.WithLoggerKey("logger"),
-		)
+	handler := func(level slog.Level, color slogtext.ColorSetting) pipeline.HandlerFactory {
+		return func(w io.Writer) slog.Handler {
+			return slogtext.NewHandler(w,
+				slogtext.WithLevel(level),
+				slogtext.WithColor(color),
+				slogtext.WithSource(true),
+				slogtext.WithTheme(themes.Fancy()),
+				slogtext.WithLoggerKey("logger"),
+			)
+		}
 	}
-	slog.SetDefault(slog.New(handler(os.Stderr)).With(slog.String("logger", "slogxfmt")))
 
-	pipeline := pipeline.New(handler).WithConcurrency(args.Concurrency)
+	var internalLevel slog.Level
+	if os.Getenv("SLOGXFMT_DEBUG") != "" {
+		internalLevel = slog.LevelDebug
+	}
+	slog.SetDefault(
+		slog.New(handler(internalLevel, ansitty.Enable)(os.Stderr)).
+			With(slog.String("logger", "slogxfmt")),
+	)
+
+	pipeline := pipeline.New(handler(level, color)).WithConcurrency(args.Concurrency)
 	err = pipeline.Run(context.Background(), input, output)
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
+
+	return nil
 }
 
 func openOutput(output string) (io.Writer, func(), error) {
