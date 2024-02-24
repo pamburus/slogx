@@ -179,6 +179,7 @@ func (p *Parser) parseTime(value *fastjson.Value) (time.Time, error) {
 		runtime.KeepAlive(b)
 
 		return result, err
+
 	default:
 		return time.Time{}, errUnexpectedTimeType
 	}
@@ -192,18 +193,12 @@ func (p *Parser) parseLevel(value *fastjson.Value) (slog.Level, error) {
 			return slog.Level(0), err
 		}
 
-		switch {
-		case bytes.EqualFold(b, levelDebug):
-			return slog.LevelDebug, nil
-		case bytes.EqualFold(b, levelInfo):
-			return slog.LevelInfo, nil
-		case bytes.EqualFold(b, levelWarn):
-			return slog.LevelWarn, nil
-		case bytes.EqualFold(b, levelError):
-			return slog.LevelError, nil
-		default:
-			return slog.Level(0), errUnknownLevel
-		}
+		s := unsafe.String(&b[0], len(b))
+		result, err := p.cfg.parseLevel(s)
+		runtime.KeepAlive(b)
+
+		return result, err
+
 	default:
 		return slog.Level(0), errUnexpectedLevelType
 	}
@@ -340,13 +335,6 @@ func (e errorValue) Error() string {
 }
 
 // ---
-
-var (
-	levelDebug = []byte("debug")
-	levelInfo  = []byte("info")
-	levelWarn  = []byte("warn")
-	levelError = []byte("error")
-)
 
 var (
 	errUnexpectedTimeType   = errors.New("unexpected time type")

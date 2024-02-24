@@ -9,6 +9,7 @@ import (
 
 	"github.com/alexflint/go-arg"
 	"github.com/pamburus/ansitty"
+	"github.com/pamburus/slogx/cmd/slogxfmt/parsing/levelparser"
 	"github.com/pamburus/slogx/cmd/slogxfmt/pipeline"
 	"github.com/pamburus/slogx/slogtext"
 	"github.com/pamburus/slogx/slogtext/themes"
@@ -61,16 +62,9 @@ func run() error {
 		color = slogtext.ColorAlways
 	}
 
-	level := slog.LevelDebug
-	switch args.Level {
-	case "debug":
-		level = slog.LevelDebug
-	case "info":
-		level = slog.LevelInfo
-	case "warn":
-		level = slog.LevelWarn
-	case "error":
-		level = slog.LevelError
+	level, err := levelparser.ParseLevel(args.Level)
+	if err != nil {
+		return err
 	}
 
 	handler := func(level slog.Level, color slogtext.ColorSetting) pipeline.HandlerFactory {

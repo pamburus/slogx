@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"log/slog"
 	"math"
+
+	"github.com/pamburus/slogx/cmd/slogxfmt/parsing/levelparser"
 )
 
 type Config struct {
@@ -12,6 +14,7 @@ type Config struct {
 	MessageKeys []string
 	CallerKeys  []string
 	ErrorKeys   []string
+	ParseLevel  LevelParseFunc
 }
 
 func (c Config) withDefaults() Config {
@@ -35,12 +38,17 @@ func (c Config) withDefaults() Config {
 		c.ErrorKeys = []string{"error", "err", "error-verbose"}
 	}
 
+	if c.ParseLevel == nil {
+		c.ParseLevel = levelparser.ParseLevel
+	}
+
 	return c
 }
 
 func (c Config) optimized() config {
 	result := config{
-		fields: make(map[string]fieldConfig),
+		fields:     make(map[string]fieldConfig),
+		parseLevel: c.ParseLevel,
 	}
 
 	addField := func(key string, kind fieldKind, priority int) {
@@ -74,7 +82,8 @@ func (c Config) optimized() config {
 // ---
 
 type config struct {
-	fields map[string]fieldConfig
+	fields     map[string]fieldConfig
+	parseLevel LevelParseFunc
 }
 
 type fieldConfig struct {
