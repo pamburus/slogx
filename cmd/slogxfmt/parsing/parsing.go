@@ -6,6 +6,8 @@ type Parser interface {
 	Parse(input []byte) (*Chunk, error)
 }
 
-func NewJSONParser() Parser {
-	return json.NewParser()
+func NewJSONParser(config JSONParserConfig) func() Parser {
+	return func() Parser {
+		return json.NewParser(config)
+	}
 }

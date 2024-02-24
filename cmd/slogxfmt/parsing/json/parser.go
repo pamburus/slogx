@@ -14,11 +14,12 @@ import (
 	"github.com/valyala/fastjson"
 )
 
-func NewParser() *Parser {
-	return &Parser{}
+func NewParser(cfg Config) *Parser {
+	return &Parser{cfg: cfg.withDefaults().optimized()}
 }
 
 type Parser struct {
+	cfg     config
 	scanner fastjson.Scanner
 	buf     strings.Builder
 }
@@ -73,22 +74,41 @@ func (p *Parser) parseLine(chunk *Chunk, object *fastjson.Object) (slog.Record, 
 	var record slog.Record
 	attrs := make([]slog.Attr, 0, 32)
 
+	priorities := prioritiesTemplate
+
 	object.Visit(func(key []byte, value *fastjson.Value) {
-		switch {
-		case bytes.Equal(key, timeKey):
-			fallthrough
-		case bytes.Equal(key, timeKey2):
-			record.Time, _ = p.parseTime(value)
-		case bytes.Equal(key, levelKey):
-			record.Level, _ = p.parseLevel(value)
-		case bytes.Equal(key, messageKey):
-			record.Message, _ = p.str(value.StringBytes())
-		case bytes.Equal(key, callerKey):
-			value, _ := p.parseCaller(value)
-			attrs = append(attrs, slog.Attr{Key: slog.SourceKey, Value: value})
+		field := p.cfg.fields[string(key)]
+		switch field.kind {
+		case fieldTime:
+			if priorities[fieldTime] > field.priority {
+				priorities[fieldTime] = field.priority
+				record.Time, _ = p.parseTime(value)
+			}
+		case fieldLevel:
+			if priorities[fieldLevel] > field.priority {
+				priorities[fieldLevel] = field.priority
+				record.Level, _ = p.parseLevel(value)
+			}
+		case fieldMessage:
+			if priorities[fieldMessage] > field.priority {
+				priorities[fieldMessage] = field.priority
+				record.Message, _ = p.stre(value.StringBytes())
+			}
+		case fieldCaller:
+			if priorities[fieldCaller] > field.priority {
+				priorities[fieldCaller] = field.priority
+				value, _ := p.parseCaller(value)
+				attrs = append(attrs, slog.Attr{Key: slog.SourceKey, Value: value})
+			}
+		case fieldError:
+			value, _ := p.parseValue(value)
+			if value.Kind() == slog.KindString {
+				value = slog.AnyValue(errorValue{value.String()})
+			}
+			attrs = append(attrs, slog.Attr{Key: p.str(key), Value: value})
 		default:
 			value, _ := p.parseValue(value)
-			attrs = append(attrs, slog.Attr{Key: string(key), Value: value})
+			attrs = append(attrs, slog.Attr{Key: p.str(key), Value: value})
 		}
 	})
 
@@ -143,7 +163,7 @@ func (p *Parser) parseLevel(value *fastjson.Value) (slog.Level, error) {
 func (p *Parser) parseCaller(value *fastjson.Value) (slog.Value, error) {
 	switch value.Type() {
 	case fastjson.TypeString:
-		s, _ := p.str(value.StringBytes())
+		s, _ := p.stre(value.StringBytes())
 
 		var source slog.Source
 		i := strings.IndexByte(s, ':')
@@ -164,7 +184,7 @@ func (p *Parser) parseCaller(value *fastjson.Value) (slog.Value, error) {
 func (p *Parser) parseValue(value *fastjson.Value) (slog.Value, error) {
 	switch value.Type() {
 	case fastjson.TypeString:
-		s, err := p.str(value.StringBytes())
+		s, err := p.stre(value.StringBytes())
 		if err != nil {
 			return slog.Value{}, err
 		}
@@ -235,11 +255,15 @@ func (p *Parser) parseValue(value *fastjson.Value) (slog.Value, error) {
 	}
 }
 
-func (p *Parser) str(b []byte, err error) (string, error) {
+func (p *Parser) stre(b []byte, err error) (string, error) {
 	if err != nil {
 		return "", err
 	}
 
+	return p.str(b), nil
+}
+
+func (p *Parser) str(b []byte) string {
 	if len(b) > p.buf.Cap()-p.buf.Len() {
 		p.buf.Reset()
 		p.buf.Grow(64 << 10)
@@ -247,18 +271,20 @@ func (p *Parser) str(b []byte, err error) (string, error) {
 
 	p.buf.Write(b)
 
-	return p.buf.String()[p.buf.Len()-len(b):], nil
+	return p.buf.String()[p.buf.Len()-len(b):]
 }
 
 // ---
 
-var (
-	timeKey    = []byte(slog.TimeKey)
-	timeKey2   = []byte("ts")
-	levelKey   = []byte(slog.LevelKey)
-	messageKey = []byte(slog.MessageKey)
-	callerKey  = []byte("caller")
-)
+type errorValue struct {
+	message string
+}
+
+func (e errorValue) Error() string {
+	return e.message
+}
+
+// ---
 
 var (
 	levelDebug = []byte("debug")

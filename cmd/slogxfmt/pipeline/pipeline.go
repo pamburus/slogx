@@ -18,7 +18,7 @@ func New(handler HandlerFactory) *Pipeline {
 	return &Pipeline{
 		handler,
 		runtime.NumCPU(),
-		parsing.NewJSONParser,
+		parsing.NewJSONParser(parsing.JSONParserConfig{}),
 	}
 }
 
