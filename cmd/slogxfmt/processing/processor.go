@@ -3,12 +3,13 @@ package processing
 import (
 	"bytes"
 	"context"
+	"log/slog"
 
 	"github.com/pamburus/slogx/cmd/slogxfmt/model"
 )
 
 func NewProcessor(parser ParserFactory, handler HandlerFactory) *Processor {
-	return &Processor{parser, handler}
+	return &Processor{parser, handler, slog.Default()}
 }
 
 // ---
@@ -16,6 +17,13 @@ func NewProcessor(parser ParserFactory, handler HandlerFactory) *Processor {
 type Processor struct {
 	parser  ParserFactory
 	handler HandlerFactory
+	logger  *slog.Logger
+}
+
+func (p Processor) WithLogger(logger *slog.Logger) *Processor {
+	p.logger = logger
+
+	return &p
 }
 
 func (p *Processor) Run(ctx context.Context, input <-chan *Buffer, output chan<- *Buffer) error {
@@ -24,6 +32,11 @@ func (p *Processor) Run(ctx context.Context, input <-chan *Buffer, output chan<-
 
 	parser := p.parser()
 	handler := p.handler(&writer)
+
+	defer func() {
+		stat := parser.Stat()
+		p.logger.Debug("parser stat", slog.Any("stat", stat))
+	}()
 
 	for {
 		select {
@@ -34,10 +47,7 @@ func (p *Processor) Run(ctx context.Context, input <-chan *Buffer, output chan<-
 				return nil
 			}
 
-			chunk, err := parser.Parse(*block)
-			if err != nil {
-				return err
-			}
+			chunk := parser.Parse(*block)
 			for _, record := range chunk.Records {
 				handler.Handle(ctx, record)
 			}

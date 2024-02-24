@@ -17,7 +17,7 @@ func New(handler HandlerFactory) *Pipeline {
 	return &Pipeline{
 		handler,
 		0,
-		parsing.NewJSONParser(parsing.JSONParserConfig{}),
+		parsing.NewDefaultJSONParser,
 	}
 }
 
@@ -146,10 +146,12 @@ func (p *Pipeline) Run(ctx context.Context, input io.Reader, output io.Writer) (
 			defer close(done[i])
 			defer close(out[i])
 
-			slog.Debug("worker: started", slog.Int("id", i))
-			defer slog.Debug("worker: stopped", slog.Int("id", i))
+			logger := slog.Default().With(slog.Int("worker", i))
 
-			processor := processing.NewProcessor(p.parser, p.handler)
+			logger.Debug("worker started")
+			defer logger.Debug("worker stopped")
+
+			processor := processing.NewProcessor(p.parser, p.handler).WithLogger(logger)
 			err := processor.Run(ctx, in[i], out[i])
 			if err != nil {
 				errs <- err

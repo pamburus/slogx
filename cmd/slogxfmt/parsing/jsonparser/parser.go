@@ -1,4 +1,4 @@
-package json
+package jsonparser
 
 import (
 	"bytes"
@@ -14,63 +14,71 @@ import (
 	"github.com/valyala/fastjson"
 )
 
-func NewParser(cfg Config) *Parser {
+func New() *Parser {
+	return WithConfig(Config{})
+}
+
+func WithConfig(cfg Config) *Parser {
 	return &Parser{cfg: cfg.withDefaults().optimized()}
 }
 
 type Parser struct {
-	cfg     config
-	scanner fastjson.Scanner
-	buf     strings.Builder
+	cfg  config
+	p    fastjson.Parser
+	buf  strings.Builder
+	stat Stat
 }
 
-func (p *Parser) Parse(input []byte) (*Chunk, error) {
-	p.scanner.InitBytes(input)
-
-	var err error
+func (p *Parser) Parse(input []byte) *Chunk {
 	chunk := model.NewChunk()
-	defer func() {
+
+	for len(input) > 0 {
+		i := bytes.IndexByte(input, '\n')
+		if i < 0 {
+			i = len(input)
+		}
+
+		lineBytes := input[:i]
+		input = input[i+1:]
+		p.stat.LinesTotal++
+
+		line, err := p.p.ParseBytes(lineBytes)
 		if err != nil {
-			chunk.Free()
-		}
-		if p := recover(); p != nil {
-			chunk.Free()
-			panic(p)
-		}
-	}()
-
-	err = p.parse(chunk)
-	if err != nil {
-		return nil, err
-	}
-
-	return chunk, nil
-}
-
-func (p *Parser) parse(chunk *Chunk) error {
-	for p.scanner.Next() {
-		line := p.scanner.Value()
-		if line.Type() != fastjson.TypeObject {
+			p.stat.LinesInvalid++
 			continue
 		}
 
-		object, err := line.Object()
-		if err != nil {
-			return err
+		if line.Type() != fastjson.TypeObject {
+			p.stat.LinesInvalid++
+			continue
 		}
 
-		record, err := p.parseLine(chunk, object)
+		record, err := p.parseLine(chunk, line)
 		if err != nil {
-			return err
+			p.stat.LinesInvalid++
+			continue
 		}
 
 		chunk.Records = append(chunk.Records, record)
 	}
 
-	return p.scanner.Error()
+	return chunk
 }
 
-func (p *Parser) parseLine(chunk *Chunk, object *fastjson.Object) (slog.Record, error) {
+func (p *Parser) Stat() Stat {
+	return p.stat
+}
+
+func (p *Parser) parseLine(chunk *Chunk, line *fastjson.Value) (slog.Record, error) {
+	object, err := line.Object()
+	if err != nil {
+		return slog.Record{}, err
+	}
+
+	return p.parseLineObject(chunk, object)
+}
+
+func (p *Parser) parseLineObject(chunk *Chunk, object *fastjson.Object) (slog.Record, error) {
 	var record slog.Record
 	attrs := make([]slog.Attr, 0, 32)
 
@@ -104,29 +112,53 @@ func (p *Parser) parseLine(chunk *Chunk, object *fastjson.Object) (slog.Record, 
 				callerValue = value
 			}
 		case fieldError:
-			value, _ := p.parseValue(value)
-			if value.Kind() == slog.KindString {
-				value = slog.AnyValue(errorValue{value.String()})
+			value, err := p.parseValue(value)
+			if err != nil {
+				p.stat.ErrorsTotal++
+			} else {
+				if value.Kind() == slog.KindString {
+					value = slog.AnyValue(errorValue{value.String()})
+				}
+				attrs = append(attrs, slog.Attr{Key: p.str(key), Value: value})
 			}
-			attrs = append(attrs, slog.Attr{Key: p.str(key), Value: value})
 		default:
-			value, _ := p.parseValue(value)
-			attrs = append(attrs, slog.Attr{Key: p.str(key), Value: value})
+			value, err := p.parseValue(value)
+			if err != nil {
+				p.stat.ErrorsTotal++
+			} else {
+				attrs = append(attrs, slog.Attr{Key: p.str(key), Value: value})
+			}
 		}
 	})
 
 	if timeValue != nil {
-		record.Time, _ = p.parseTime(timeValue)
+		var err error
+		record.Time, err = p.parseTime(timeValue)
+		if err != nil {
+			p.stat.ErrorsTotal++
+		}
 	}
 	if levelValue != nil {
-		record.Level, _ = p.parseLevel(levelValue)
+		var err error
+		record.Level, err = p.parseLevel(levelValue)
+		if err != nil {
+			p.stat.ErrorsTotal++
+		}
 	}
 	if messageValue != nil {
-		record.Message, _ = p.stre(messageValue.StringBytes())
+		var err error
+		record.Message, err = p.stre(messageValue.StringBytes())
+		if err != nil {
+			p.stat.ErrorsTotal++
+		}
 	}
 	if callerValue != nil {
-		value, _ := p.parseCaller(callerValue)
-		attrs = append(attrs, slog.Attr{Key: slog.SourceKey, Value: value})
+		value, err := p.parseCaller(callerValue)
+		if err != nil {
+			p.stat.ErrorsTotal++
+		} else {
+			attrs = append(attrs, slog.Attr{Key: slog.SourceKey, Value: value})
+		}
 	}
 
 	record.AddAttrs(attrs...)
@@ -180,13 +212,19 @@ func (p *Parser) parseLevel(value *fastjson.Value) (slog.Level, error) {
 func (p *Parser) parseCaller(value *fastjson.Value) (slog.Value, error) {
 	switch value.Type() {
 	case fastjson.TypeString:
-		s, _ := p.stre(value.StringBytes())
+		s, err := p.stre(value.StringBytes())
+		if err != nil {
+			return slog.Value{}, err
+		}
 
 		var source slog.Source
 		i := strings.IndexByte(s, ':')
 		if i > 0 {
 			source.File = s[:i]
-			source.Line, _ = strconv.Atoi(s[i+1:])
+			source.Line, err = strconv.Atoi(s[i+1:])
+			if err != nil {
+				p.stat.ErrorsTotal++
+			}
 		} else {
 			source.Function = s
 		}

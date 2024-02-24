@@ -1,4 +1,4 @@
-package parsing
+package jsonparser
 
 import (
 	"github.com/pamburus/slogx/cmd/slogxfmt/model"

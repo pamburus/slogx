@@ -1,13 +1,24 @@
 package parsing
 
-import "github.com/pamburus/slogx/cmd/slogxfmt/parsing/json"
+import "github.com/pamburus/slogx/cmd/slogxfmt/parsing/jsonparser"
 
-type Parser interface {
-	Parse(input []byte) (*Chunk, error)
+func NewDefaultJSONParser() Parser {
+	return jsonparser.New()
 }
 
-func NewJSONParser(config JSONParserConfig) func() Parser {
+func NewJSONParser(config jsonparser.Config) ParserFactory {
 	return func() Parser {
-		return json.NewParser(config)
+		return jsonparser.WithConfig(config)
 	}
+}
+
+// ---
+
+type ParserFactory func() Parser
+
+// ---
+
+type Parser interface {
+	Parse(input []byte) *Chunk
+	Stat() Stat
 }
