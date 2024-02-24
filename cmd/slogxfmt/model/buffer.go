@@ -1,9 +1,9 @@
-package databuf
+package model
 
 import "sync"
 
-func New() *Buffer {
-	return pool.Get().(*Buffer)
+func NewBuffer() *Buffer {
+	return bufferPool.Get().(*Buffer)
 }
 
 // ---
@@ -26,13 +26,13 @@ func (b *Buffer) Tail() []byte {
 func (b *Buffer) Free() {
 	if cap(*b) <= bufSize {
 		*b = (*b)[:0]
-		pool.Put(b)
+		bufferPool.Put(b)
 	}
 }
 
 // ---
 
-var pool = sync.Pool{
+var bufferPool = sync.Pool{
 	New: func() any {
 		buf := Buffer(make([]byte, 0, bufSize))
 

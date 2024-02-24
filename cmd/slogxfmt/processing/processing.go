@@ -5,16 +5,16 @@ import (
 	"context"
 	"log/slog"
 
-	"github.com/pamburus/slogx/cmd/slogxfmt/databuf"
+	"github.com/pamburus/slogx/cmd/slogxfmt/model"
 	"github.com/pamburus/slogx/cmd/slogxfmt/parsing"
 	"github.com/pamburus/slogx/slogtext"
 	"github.com/pamburus/slogx/slogtext/themes"
 )
 
-func Run(ctx context.Context, input <-chan *databuf.Buffer, output chan<- *databuf.Buffer) error {
+func Run(ctx context.Context, parser parsing.Parser, input <-chan *Buffer, output chan<- *Buffer) error {
 	defer close(output)
 
-	buf := databuf.New()
+	buf := model.NewBuffer()
 	writer := *bytes.NewBuffer(*buf)
 
 	handler := slogtext.NewHandler(&writer,
@@ -24,8 +24,6 @@ func Run(ctx context.Context, input <-chan *databuf.Buffer, output chan<- *datab
 		slogtext.WithLoggerNameKey("logger"),
 		slogtext.WithTheme(themes.Fancy()),
 	)
-
-	parser := parsing.NewParser()
 
 	for {
 		// slog.Debug("processor: reading input block")
@@ -60,7 +58,7 @@ func Run(ctx context.Context, input <-chan *databuf.Buffer, output chan<- *datab
 				// slog.Debug("processor: sent block to output")
 			}
 
-			buf = databuf.New()
+			buf = model.NewBuffer()
 			writer = *bytes.NewBuffer(*buf)
 		}
 	}

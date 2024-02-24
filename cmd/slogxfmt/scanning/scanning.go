@@ -6,15 +6,13 @@ import (
 	"io"
 	"slices"
 
-	"github.com/pamburus/slogx/cmd/slogxfmt/databuf"
+	"github.com/pamburus/slogx/cmd/slogxfmt/model"
 )
-
-type Buffer = databuf.Buffer
 
 func Scan(ctx context.Context, reader io.Reader, sink chan<- *Buffer) error {
 	defer close(sink)
 
-	buf := databuf.New()
+	buf := model.NewBuffer()
 
 	var next *Buffer
 	var err error
@@ -39,7 +37,7 @@ func Scan(ctx context.Context, reader io.Reader, sink chan<- *Buffer) error {
 				buf = next
 				if buf == nil {
 					// slog.Debug("scanner: allocating new buffer")
-					buf = databuf.New()
+					buf = model.NewBuffer()
 				} else {
 					// slog.Debug("scanner: using new buffer", slog.Int("len", buf.Len()), slog.Int("cap", buf.Cap()))
 				}
@@ -84,7 +82,7 @@ func Scan(ctx context.Context, reader io.Reader, sink chan<- *Buffer) error {
 			i := bytes.LastIndexByte((*buf)[begin:], '\n')
 			if i >= 0 {
 				foundNewLine = true
-				next = databuf.New()
+				next = model.NewBuffer()
 				*next = append(*next, (*buf)[begin+i+1:]...)
 				*buf = (*buf)[:begin+i+1]
 			}
