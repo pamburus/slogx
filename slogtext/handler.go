@@ -55,6 +55,7 @@ type Handler struct {
 	groups    groups
 	groupKeys groupKeys
 	keyPrefix string
+	logger    string
 	cache     cache
 }
 
@@ -128,13 +129,20 @@ func (h *Handler) Handle(ctx context.Context, record slog.Record) error {
 		logger = h.loggerFromContext(ctx)
 	}
 	if logger == "" && h.loggerKey != "" {
+		if h.logger != "" {
+			logger = h.logger
+		}
 		record.Attrs(func(attr slog.Attr) bool {
 			if attr.Key != h.loggerKey {
 				return true
 			}
 
 			if attr.Value.Kind() == slog.KindString {
-				logger = attr.Value.String()
+				if logger == "" {
+					logger = attr.Value.String()
+				} else {
+					logger += "." + attr.Value.String()
+				}
 			}
 
 			return false
@@ -239,6 +247,18 @@ func (h *Handler) WithAttrs(attrs []slog.Attr) slog.Handler {
 		}
 	}
 
+	if h.loggerKey != "" {
+		for _, attr := range attrs {
+			if attr.Key == h.loggerKey && attr.Value.Kind() == slog.KindString {
+				if h.logger == "" {
+					h.logger = attr.Value.String()
+				} else {
+					h.logger += "." + attr.Value.String()
+				}
+			}
+		}
+	}
+
 	return h
 }
 
@@ -265,6 +285,7 @@ func (h *Handler) fork() *Handler {
 		h.groups.fork(),
 		h.groupKeys.fork(),
 		h.keyPrefix,
+		h.logger,
 		h.cache.fork(h),
 	}
 }
