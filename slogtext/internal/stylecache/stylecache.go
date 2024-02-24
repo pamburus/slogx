@@ -2,6 +2,7 @@ package stylecache
 
 import (
 	"strings"
+	"unicode/utf8"
 
 	"github.com/pamburus/slogx/internal/stripansi"
 	"github.com/pamburus/slogx/slogtext/internal/syntax"
@@ -46,7 +47,7 @@ func New(theme *Theme, cfg *Config) *StyleCache {
 		c.LevelValue[i] = st(theme.LevelValue[i])
 	}
 
-	c.AddedTimeWidth = len(stripansi.Strip(c.Time.render("")))
+	c.AddedTimeWidth = utf8.RuneCountInString(stripansi.Strip(c.Time.render("")))
 
 	return c
 }
