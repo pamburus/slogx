@@ -21,6 +21,7 @@ type args struct {
 	C           bool     `arg:"-c" help:"Force color output."`
 	Level       string   `arg:"-l,--level" help:"Log level filter [debug|info|warn|error]." default:"debug"`
 	Output      string   `arg:"-o" help:"Output file."`
+	Expansion   string   `arg:"-x,--expansion" help:"Attribute expansion control [auto|always|never|low|medium|high]." default:"auto"`
 	Inputs      []string `arg:"positional" help:"Input files to process."`
 }
 
@@ -62,6 +63,24 @@ func run() error {
 		color = slogtext.ColorAlways
 	}
 
+	expansion := slogtext.ExpansionAuto
+	switch args.Expansion {
+	case "auto":
+		expansion = slogtext.ExpansionAuto
+	case "always":
+		expansion = slogtext.ExpansionAlways
+	case "never":
+		expansion = slogtext.ExpansionNever
+	case "low":
+		expansion = slogtext.ExpansionLow
+	case "medium":
+		expansion = slogtext.ExpansionMedium
+	case "high":
+		expansion = slogtext.ExpansionHigh
+	default:
+		return fmt.Errorf("invalid expansion setting: %s", args.Expansion)
+	}
+
 	level, err := levelparser.ParseLevel(args.Level)
 	if err != nil {
 		return err
@@ -72,6 +91,7 @@ func run() error {
 			return slogtext.NewHandler(w,
 				slogtext.WithLevel(level),
 				slogtext.WithColor(color),
+				slogtext.WithExpansion(expansion),
 				slogtext.WithSource(true),
 				slogtext.WithTheme(themes.Fancy()),
 				slogtext.WithLoggerKey("logger"),
