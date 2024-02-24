@@ -123,29 +123,28 @@ func (h *Handler) Handle(ctx context.Context, record slog.Record) error {
 
 	hs.messageBegin = hs.buf.Len()
 
-	var loggerName string
-	if h.loggerNameFromContext != nil {
-		loggerName = h.loggerNameFromContext(ctx)
+	var logger string
+	if h.loggerFromContext != nil {
+		logger = h.loggerFromContext(ctx)
 	}
-	if loggerName == "" && h.loggerNameKey != "" {
+	if logger == "" && h.loggerKey != "" {
 		record.Attrs(func(attr slog.Attr) bool {
-			if attr.Key != h.loggerNameKey {
+			if attr.Key != h.loggerKey {
 				return true
 			}
 
 			if attr.Value.Kind() == slog.KindString {
-				loggerName = attr.Value.String()
+				logger = attr.Value.String()
 			}
 
 			return false
 		})
 	}
 
-	if loggerName != "" {
-		hs.buf.AppendString(h.stc.LoggerName.Prefix)
-		hs.buf.AppendString(loggerName)
-		hs.buf.AppendByte(syntax.LoggerNameMessageSeparator)
-		hs.buf.AppendString(h.stc.LoggerName.Suffix)
+	if logger != "" {
+		hs.buf.AppendString(h.stc.Logger.Prefix)
+		hs.buf.AppendString(logger)
+		hs.buf.AppendString(h.stc.Logger.Suffix)
 	}
 
 	if record.Message != "" {
@@ -360,7 +359,7 @@ func (h *Handler) appendAttr(hs *handleState, attr slog.Attr, basePrefixLen int)
 		return
 	}
 
-	if h.loggerNameKey != "" && attr.Key == h.loggerNameKey {
+	if h.loggerKey != "" && attr.Key == h.loggerKey {
 		return
 	}
 

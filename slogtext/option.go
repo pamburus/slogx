@@ -107,17 +107,17 @@ func WithLevelReplaceFunc(f LevelReplaceFunc) Option {
 	}
 }
 
-// WithLoggerNameFromContext sets the logger name from context function for the Handler.
-func WithLoggerNameFromContext(fn func(context.Context) string) Option {
+// WithLoggerFromContext sets the logger name from context function for the Handler.
+func WithLoggerFromContext(fn func(context.Context) string) Option {
 	return func(o *options) {
-		o.loggerNameFromContext = fn
+		o.loggerFromContext = fn
 	}
 }
 
-// WithLoggerNameKey sets the logger name key for the Handler.
-func WithLoggerNameKey(key string) Option {
+// WithLoggerKey sets the logger name key for the Handler.
+func WithLoggerKey(key string) Option {
 	return func(o *options) {
-		o.loggerNameKey = key
+		o.loggerKey = key
 	}
 }
 
@@ -183,22 +183,22 @@ type LevelReplaceFunc func(context.Context, slog.Level) slog.Level
 // ---
 
 type options struct {
-	leveler               slog.Leveler
-	enableColor           ColorSetting
-	replaceAttr           AttrReplaceFunc
-	encodeTimestamp       TimeEncodeFunc
-	encodeTimeValue       TimeEncodeFunc
-	encodeDuration        DurationEncodeFunc
-	encodeSource          SourceEncodeFunc
-	replaceLevel          LevelReplaceFunc
-	includeSource         bool
-	sourceKey             string
-	levelOffset           bool
-	expansionThreshold    ExpansionThreshold
-	bytesFormat           BytesFormat
-	loggerNameFromContext func(context.Context) string
-	loggerNameKey         string
-	theme                 Theme
+	leveler            slog.Leveler
+	enableColor        ColorSetting
+	replaceAttr        AttrReplaceFunc
+	encodeTimestamp    TimeEncodeFunc
+	encodeTimeValue    TimeEncodeFunc
+	encodeDuration     DurationEncodeFunc
+	encodeSource       SourceEncodeFunc
+	replaceLevel       LevelReplaceFunc
+	includeSource      bool
+	sourceKey          string
+	levelOffset        bool
+	expansionThreshold ExpansionThreshold
+	bytesFormat        BytesFormat
+	loggerFromContext  func(context.Context) string
+	loggerKey          string
+	theme              Theme
 }
 
 func defaultOptions() options {

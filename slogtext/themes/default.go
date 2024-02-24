@@ -49,8 +49,11 @@ func Default() Theme {
 		},
 		Level:      level,
 		LevelValue: levelValue,
-		LoggerName: Item{
+		Logger: Item{
 			Prefix: "\x1b[2m",
+			Suffix: "",
+		},
+		LoggerMessageSep: Item{
 			Suffix: "\x1b[m",
 		},
 		Message: StringItem{
