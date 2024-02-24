@@ -204,7 +204,7 @@ func (h *Handler) Handle(ctx context.Context, record slog.Record) error {
 		hs.buf.TrimBackByte(' ')
 		hs.buf.AppendString(h.stc.ExpandedMessageSign)
 		hs.expandingAttrs = true
-		w := max(hs.expandingKeysWidth+utf8.RuneCountInString(h.keyPrefix)+4, 40)
+		w := max(hs.expandingKeysWidth+utf8.RuneCountInString(h.keyPrefix)+1, 8)
 		w = w + 16 - w%16 - utf8.RuneCountInString(h.keyPrefix)
 		for _, attr := range hs.attrsToExpand {
 			hs.buf.AppendByte('\n')
