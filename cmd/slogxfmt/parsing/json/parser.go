@@ -75,6 +75,10 @@ func (p *Parser) parseLine(chunk *Chunk, object *fastjson.Object) (slog.Record, 
 	attrs := make([]slog.Attr, 0, 32)
 
 	priorities := prioritiesTemplate
+	var timeValue *fastjson.Value
+	var levelValue *fastjson.Value
+	var messageValue *fastjson.Value
+	var callerValue *fastjson.Value
 
 	object.Visit(func(key []byte, value *fastjson.Value) {
 		field := p.cfg.fields[string(key)]
@@ -82,23 +86,22 @@ func (p *Parser) parseLine(chunk *Chunk, object *fastjson.Object) (slog.Record, 
 		case fieldTime:
 			if priorities[fieldTime] > field.priority {
 				priorities[fieldTime] = field.priority
-				record.Time, _ = p.parseTime(value)
+				timeValue = value
 			}
 		case fieldLevel:
 			if priorities[fieldLevel] > field.priority {
 				priorities[fieldLevel] = field.priority
-				record.Level, _ = p.parseLevel(value)
+				levelValue = value
 			}
 		case fieldMessage:
 			if priorities[fieldMessage] > field.priority {
 				priorities[fieldMessage] = field.priority
-				record.Message, _ = p.stre(value.StringBytes())
+				messageValue = value
 			}
 		case fieldCaller:
 			if priorities[fieldCaller] > field.priority {
 				priorities[fieldCaller] = field.priority
-				value, _ := p.parseCaller(value)
-				attrs = append(attrs, slog.Attr{Key: slog.SourceKey, Value: value})
+				callerValue = value
 			}
 		case fieldError:
 			value, _ := p.parseValue(value)
@@ -111,6 +114,20 @@ func (p *Parser) parseLine(chunk *Chunk, object *fastjson.Object) (slog.Record, 
 			attrs = append(attrs, slog.Attr{Key: p.str(key), Value: value})
 		}
 	})
+
+	if timeValue != nil {
+		record.Time, _ = p.parseTime(timeValue)
+	}
+	if levelValue != nil {
+		record.Level, _ = p.parseLevel(levelValue)
+	}
+	if messageValue != nil {
+		record.Message, _ = p.stre(messageValue.StringBytes())
+	}
+	if callerValue != nil {
+		value, _ := p.parseCaller(callerValue)
+		attrs = append(attrs, slog.Attr{Key: slog.SourceKey, Value: value})
+	}
 
 	record.AddAttrs(attrs...)
 
