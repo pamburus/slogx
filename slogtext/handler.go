@@ -412,7 +412,7 @@ func (h *Handler) appendAttr(hs *handleState, attr slog.Attr, basePrefixLen int)
 			hs.groups = hs.groups[:len(hs.groups)-1]
 		}
 	} else {
-		if hs.buf.Len()-hs.messageBegin > 120 {
+		if hs.buf.Len()-hs.messageBegin > 240 {
 			hs.addAttrToExpand(attr)
 
 			return
@@ -434,10 +434,10 @@ func (h *Handler) appendKey(hs *handleState, key string, basePrefixLen int) {
 	hs.buf.AppendString(h.stc.Key.Suffix)
 }
 
-func (h *Handler) appendValue(hs *handleState, v slog.Value, quote bool, breakOnNewLine bool) bool {
+func (h *Handler) appendValue(hs *handleState, v slog.Value, quote bool, allowExpansion bool) bool {
 	switch v.Kind() {
 	case slog.KindString:
-		return h.appendString(hs, &h.stc.StringValue, v.String(), quote, breakOnNewLine)
+		return h.appendString(hs, &h.stc.StringValue, v.String(), quote, allowExpansion)
 	case slog.KindInt64:
 		hs.buf.AppendString(h.stc.NumberValue.Prefix)
 		hs.buf.AppendInt(v.Int64())
@@ -485,16 +485,16 @@ func (h *Handler) appendValue(hs *handleState, v slog.Value, quote bool, breakOn
 		case slog.Level:
 			h.appendLevelValue(hs, v)
 		case error:
-			return h.appendString(hs, &h.stc.ErrorValue, v.Error(), quote, breakOnNewLine)
+			return h.appendString(hs, &h.stc.ErrorValue, v.Error(), quote, allowExpansion)
 		case fmt.Stringer:
 			if v, ok, errorAppended := safeResolveValue(h, hs, v.String); ok {
-				return h.appendString(hs, &h.stc.StringValue, v, quote, breakOnNewLine)
+				return h.appendString(hs, &h.stc.StringValue, v, quote, allowExpansion)
 			} else {
 				return errorAppended
 			}
 		case encoding.TextMarshaler:
 			if data, ok, errorAppended := safeResolveValueErr(h, hs, v.MarshalText); ok {
-				h.appendString(hs, &h.stc.StringValue, unsafe.String(&data[0], len(data)), quote, breakOnNewLine)
+				h.appendString(hs, &h.stc.StringValue, unsafe.String(&data[0], len(data)), quote, allowExpansion)
 			} else {
 				return errorAppended
 			}
@@ -503,7 +503,7 @@ func (h *Handler) appendValue(hs *handleState, v slog.Value, quote bool, breakOn
 		case slog.Source:
 			h.appendSource(hs, v)
 		case []byte:
-			return h.appendBytesValue(hs, v, quote, breakOnNewLine)
+			return h.appendBytesValue(hs, v, quote, allowExpansion)
 		default:
 			h.appendAnyValue(hs, v, quote)
 		}
@@ -575,7 +575,7 @@ func (h *Handler) appendAnyValue(hs *handleState, v any, quote bool) {
 	}
 }
 
-func (h *Handler) appendString(hs *handleState, ss *stylecache.StringStyle, s string, quote bool, breakOnNewLine bool) bool {
+func (h *Handler) appendString(hs *handleState, ss *stylecache.StringStyle, s string, quote bool, allowExpansion bool) bool {
 	switch {
 	case hs.expandingAttrs:
 		for {
@@ -598,7 +598,7 @@ func (h *Handler) appendString(hs *handleState, ss *stylecache.StringStyle, s st
 		if s == "null" {
 			hs.buf.AppendString(ss.Null)
 		} else {
-			return h.appendAutoQuotedString(hs, ss, s, breakOnNewLine)
+			return h.appendAutoQuotedString(hs, ss, s, allowExpansion)
 		}
 	default:
 		hs.buf.AppendString(s)
@@ -607,12 +607,12 @@ func (h *Handler) appendString(hs *handleState, ss *stylecache.StringStyle, s st
 	return true
 }
 
-func (h *Handler) appendAutoQuotedString(hs *handleState, ss *stylecache.StringStyle, v string, breakOnNewLine bool) bool {
+func (h *Handler) appendAutoQuotedString(hs *handleState, ss *stylecache.StringStyle, v string, allowExpansion bool) bool {
 	switch {
 	case len(v) == 0:
 		hs.buf.AppendString(ss.Empty)
 	case quotation.StringValueContext().IsNeeded(v):
-		return h.appendQuotedString(hs, ss, v, breakOnNewLine)
+		return h.appendQuotedString(hs, ss, v, allowExpansion)
 	default:
 		hs.buf.AppendString(v)
 	}
@@ -626,9 +626,9 @@ func (h *Handler) appendUnquotedString(hs *handleState, ss *stylecache.StringSty
 	hs.buf.AppendString(ss.Unquoted.Suffix)
 }
 
-func (h *Handler) appendQuotedString(hs *handleState, ss *stylecache.StringStyle, v string, breakOnNewLine bool) bool {
+func (h *Handler) appendQuotedString(hs *handleState, ss *stylecache.StringStyle, v string, allowExpansion bool) bool {
 	hs.buf.AppendString(ss.Quoted.Prefix)
-	done := h.appendEscapedString(hs, ss, v, breakOnNewLine)
+	done := h.appendEscapedString(hs, ss, v, allowExpansion)
 	hs.buf.AppendString(ss.Quoted.Suffix)
 	if !done {
 		hs.buf.TrimBackByte(' ')
@@ -638,7 +638,7 @@ func (h *Handler) appendQuotedString(hs *handleState, ss *stylecache.StringStyle
 	return done
 }
 
-func (h *Handler) appendEscapedString(hs *handleState, ss *stylecache.StringStyle, s string, breakOnNewLine bool) bool {
+func (h *Handler) appendEscapedString(hs *handleState, ss *stylecache.StringStyle, s string, allowExpansion bool) bool {
 	p := 0
 
 	for i := 0; i < len(s); {
@@ -656,9 +656,6 @@ func (h *Handler) appendEscapedString(hs *handleState, ss *stylecache.StringStyl
 				hs.buf.AppendString(ss.Escape.CR)
 			case '\n':
 				hs.buf.AppendString(ss.Escape.LF)
-				if breakOnNewLine && i > int(h.expansionThreshold) {
-					return false
-				}
 			case '\\':
 				hs.buf.AppendString(ss.Escape.Backslash)
 			case '"':
@@ -669,6 +666,9 @@ func (h *Handler) appendEscapedString(hs *handleState, ss *stylecache.StringStyl
 				hs.buf.AppendByte(hexDigits[c>>4])
 				hs.buf.AppendByte(hexDigits[c&0xf])
 				hs.buf.AppendString(ss.Escape.Style.Suffix)
+			}
+			if allowExpansion && i > int(h.expansionThreshold) {
+				return false
 			}
 			i++
 			p = i

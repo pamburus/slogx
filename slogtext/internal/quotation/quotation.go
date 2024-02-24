@@ -2,7 +2,10 @@
 package quotation
 
 import (
+	"strings"
 	"unicode/utf8"
+
+	"github.com/pamburus/slogx/slogtext/internal/syntax"
 )
 
 // MessageContext returns the quoting context for log messages.
@@ -129,14 +132,12 @@ func messageExtraCheck(s string) bool {
 
 	switch s[0] {
 	case ' ':
-		return s[1] == ' ' && s[2] == '\t'
+		return strings.HasPrefix(s, syntax.ExpandedKeyPrefix) || strings.HasPrefix(s, syntax.ExpandedValuePrefix)
 	case '@':
 		return s[1] == ' '
-	case '>':
-		return s[1] == '-' && s[2] == ' '
 	}
 
-	return s[n-1] == '>' && s[n-2] == '>' && s[n-3] == ' '
+	return false
 }
 
 var (

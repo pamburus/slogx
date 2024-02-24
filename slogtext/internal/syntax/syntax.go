@@ -5,10 +5,10 @@ package syntax
 const ExpandedMessageSuffix = " >>"
 
 // ExpandedKeyPrefix is the prefix for expanded keys.
-const ExpandedKeyPrefix = ">- "
+const ExpandedKeyPrefix = "  >- "
 
 // ExpandedValuePrefix is the prefix for expanded values.
-const ExpandedValuePrefix = "  \t"
+const ExpandedValuePrefix = "     \t"
 
 // LevelLabel is a logging level label.
 type LevelLabel string
