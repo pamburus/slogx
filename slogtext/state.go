@@ -24,7 +24,9 @@ type handleState struct {
 	groupPrefixLen int
 	groups         []string
 	attrsToExpand  []attrToExpand
+	levelBegin     int
 	messageBegin   int
+	timestampWidth int
 	expandingAttrs bool
 	pcs            [1]uintptr
 	sourceAttr     slog.Attr
@@ -46,7 +48,9 @@ func (s *handleState) release() {
 	s.groupPrefixLen = 0
 	s.attrsToExpand = s.attrsToExpand[:0]
 	s.expandingAttrs = false
+	s.levelBegin = 0
 	s.messageBegin = 0
+	s.timestampWidth = 0
 	s.pcs[0] = 0
 	s.sourceAttr = slog.Attr{}
 

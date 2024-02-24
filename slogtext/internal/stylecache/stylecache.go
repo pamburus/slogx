@@ -3,6 +3,7 @@ package stylecache
 import (
 	"strings"
 
+	"github.com/pamburus/slogx/internal/stripansi"
 	"github.com/pamburus/slogx/slogtext/internal/syntax"
 	"github.com/pamburus/slogx/slogtext/themes"
 )
@@ -45,6 +46,8 @@ func New(theme *Theme, cfg *Config) *StyleCache {
 		c.LevelValue[i] = st(theme.LevelValue[i])
 	}
 
+	c.AddedTimeWidth = len(stripansi.Strip(c.Time.render("")))
+
 	return c
 }
 
@@ -77,6 +80,7 @@ type StyleCache struct {
 	MapKeyValueSep      string
 	Null                string
 	ExpandedMessageSign string
+	AddedTimeWidth      int
 }
 
 // ---

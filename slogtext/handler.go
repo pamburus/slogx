@@ -107,6 +107,8 @@ func (h *Handler) Handle(ctx context.Context, record slog.Record) error {
 		}
 	}
 
+	hs.levelBegin = hs.buf.Len()
+
 	h.appendLevel(hs, record.Level)
 
 	if replace != nil {
@@ -204,7 +206,7 @@ func (h *Handler) Handle(ctx context.Context, record slog.Record) error {
 		hs.expandingAttrs = true
 		for _, attr := range hs.attrsToExpand {
 			hs.buf.AppendByte('\n')
-			hs.buf.AppendBytes(hs.buf[:hs.messageBegin])
+			h.expandLine(hs)
 			hs.buf.AppendString(h.stc.ExpandedKey.Prefix)
 			hs.buf.AppendString(h.keyPrefix)
 			hs.buf.AppendString(attr.KeyPrefix)
@@ -296,7 +298,9 @@ func (h *Handler) fork() *Handler {
 }
 
 func (h *Handler) appendTimestamp(hs *handleState, value time.Time) {
+	begin := hs.buf.Len()
 	hs.buf = h.encodeTimestamp(hs.buf, value)
+	hs.timestampWidth = hs.buf.Len() - begin
 }
 
 func (h *Handler) appendTime(hs *handleState, value time.Time, quote bool) {
@@ -373,8 +377,14 @@ func (h *Handler) prepareToAppendValue(hs *handleState) {
 		return
 	}
 
-	hs.buf.AppendBytes(hs.buf[:hs.messageBegin])
+	h.expandLine(hs)
 	hs.buf.AppendString(syntax.ExpandedValuePrefix)
+}
+
+func (h *Handler) expandLine(hs *handleState) {
+	n := min(hs.timestampWidth+h.stc.AddedTimeWidth, len(spaces))
+	hs.buf.AppendString(spaces[:n])
+	hs.buf.AppendBytes(hs.buf[hs.levelBegin:hs.messageBegin])
 }
 
 func (h *Handler) appendAttr(hs *handleState, attr slog.Attr, basePrefixLen int) {
@@ -940,6 +950,7 @@ func levelIndex(level slog.Level) int {
 // ---
 
 const hexDigits = "0123456789abcdef"
+const spaces = "                                                                "
 const numLevels = themes.NumLevels
 const numEmbeddedGroups = 4
 
