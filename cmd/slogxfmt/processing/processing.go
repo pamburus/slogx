@@ -3,27 +3,29 @@ package processing
 import (
 	"bytes"
 	"context"
-	"log/slog"
 
 	"github.com/pamburus/slogx/cmd/slogxfmt/model"
-	"github.com/pamburus/slogx/cmd/slogxfmt/parsing"
-	"github.com/pamburus/slogx/slogtext"
-	"github.com/pamburus/slogx/slogtext/themes"
 )
 
-func Run(ctx context.Context, parser parsing.Parser, input <-chan *Buffer, output chan<- *Buffer) error {
+func NewProcessor(parser ParserFactory, handler HandlerFactory) *Processor {
+	return &Processor{parser, handler}
+}
+
+// ---
+
+type Processor struct {
+	parser  ParserFactory
+	handler HandlerFactory
+}
+
+func (p *Processor) Run(ctx context.Context, input <-chan *Buffer, output chan<- *Buffer) error {
 	defer close(output)
 
 	buf := model.NewBuffer()
 	writer := *bytes.NewBuffer(*buf)
 
-	handler := slogtext.NewHandler(&writer,
-		slogtext.WithLevel(slog.LevelDebug),
-		slogtext.WithColor(slogtext.ColorAlways),
-		slogtext.WithSource(true),
-		slogtext.WithLoggerNameKey("logger"),
-		slogtext.WithTheme(themes.Fancy()),
-	)
+	parser := p.parser()
+	handler := p.handler(&writer)
 
 	for {
 		// slog.Debug("processor: reading input block")

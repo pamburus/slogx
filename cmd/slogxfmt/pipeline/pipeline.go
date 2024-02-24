@@ -14,16 +14,18 @@ import (
 	"github.com/pamburus/slogx/cmd/slogxfmt/scanning"
 )
 
-func New() *Pipeline {
+func New(handler HandlerFactory) *Pipeline {
 	return &Pipeline{
+		handler,
 		runtime.NumCPU(),
 		parsing.NewJSONParser,
 	}
 }
 
 type Pipeline struct {
+	handler     HandlerFactory
 	concurrency int
-	parser      func() Parser
+	parser      ParserFactory
 }
 
 func (p Pipeline) WithConcurrency(concurrency int) *Pipeline {
@@ -32,7 +34,7 @@ func (p Pipeline) WithConcurrency(concurrency int) *Pipeline {
 	return &p
 }
 
-func (p Pipeline) WithParser(parser func() Parser) *Pipeline {
+func (p Pipeline) WithParser(parser ParserFactory) *Pipeline {
 	p.parser = parser
 
 	return &p
@@ -131,9 +133,8 @@ func (p *Pipeline) Run(ctx context.Context, input io.Reader, output io.Writer) (
 
 			// slog.Debug("worker: started", slog.Int("id", i))
 			// defer slog.Debug("worker: stopped", slog.Int("id", i))
-			parser := p.parser()
-
-			err := processing.Run(ctx, parser, ichs[i], ochs[i])
+			processor := processing.NewProcessor(p.parser, p.handler)
+			err := processor.Run(ctx, ichs[i], ochs[i])
 			if err != nil {
 				errs <- err
 			}
