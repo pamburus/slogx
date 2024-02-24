@@ -2,90 +2,74 @@ package scanning
 
 import (
 	"bytes"
-	"context"
 	"io"
 	"slices"
 
 	"github.com/pamburus/slogx/cmd/slogxfmt/model"
 )
 
-func Scan(ctx context.Context, reader io.Reader, sink chan<- *Buffer) error {
-	defer close(sink)
+func NewScanner(reader io.Reader) *Scanner {
+	return &Scanner{reader: reader}
+}
 
-	buf := model.NewBuffer()
+type Scanner struct {
+	reader io.Reader
+	buf    *Buffer
+	next   *Buffer
+	err    error
+}
 
-	var next *Buffer
-	var err error
-	var done bool
+func (s *Scanner) Next() bool {
+	if s.err != nil {
+		return false
+	}
 
-	for {
-		if buf.Len() == 0 {
-			select {
-			case <-ctx.Done():
-				// slog.Debug("scanner: context done")
-				return ctx.Err()
-			default:
-			}
-		} else {
-			// slog.Debug("scanner: sending buffer to sink", slog.Int("len", buf.Len()), slog.Int("cap", buf.Cap()))
-			select {
-			case <-ctx.Done():
-				// slog.Debug("scanner: context done")
-				return ctx.Err()
-			case sink <- buf:
-				// slog.Debug("scanner: buffer sent to sink")
-				buf = next
-				if buf == nil {
-					// slog.Debug("scanner: allocating new buffer")
-					buf = model.NewBuffer()
-				} else {
-					// slog.Debug("scanner: using new buffer", slog.Int("len", buf.Len()), slog.Int("cap", buf.Cap()))
-				}
-				next = nil
-			}
+	if s.next != nil {
+		s.buf = s.next
+		s.next = nil
+	} else {
+		s.buf = model.NewBuffer()
+	}
+
+	return s.scan()
+}
+
+func (s *Scanner) Block() *Buffer {
+	return s.buf
+}
+
+func (s *Scanner) Err() error {
+	if s.err == io.EOF {
+		return nil
+	}
+
+	return s.err
+}
+
+func (s *Scanner) scan() bool {
+	foundNewLine := false
+	for !foundNewLine {
+		if len(s.buf.Tail()) == 0 {
+			*s.buf = slices.Grow(*s.buf, s.buf.Cap())
 		}
 
-		if err == io.EOF {
-			// slog.Debug("scanner: eof")
-			return nil
-		}
-		if err != nil {
-			// slog.Debug("scanner: error", slog.Any("error", err))
-			return err
-		}
-		if done {
-			// slog.Debug("scanner: done")
-			return nil
+		var n int
+		n, s.err = s.reader.Read(s.buf.Tail())
+		if n <= 0 {
+			return s.buf.Len() > 0
 		}
 
-		foundNewLine := false
-		for !foundNewLine {
-			if len(buf.Tail()) == 0 {
-				// slog.Debug("scanner: grow buffer")
-				*buf = slices.Grow(*buf, buf.Cap())
-			}
-
-			// slog.Debug("scanner: reading up to n bytes", slog.Int("n", len(buf.Tail())))
-			var n int
-			n, err = reader.Read(buf.Tail())
-			if n <= 0 {
-				// slog.Debug("scanner: end of stream")
-
-				break
-			}
-
-			// slog.Debug("scanner: read n bytes", slog.Int("n", n))
-
-			begin := buf.Len()
-			end := n + begin
-			*buf = (*buf)[:end]
-			i := bytes.LastIndexByte((*buf)[begin:], '\n')
-			if i >= 0 {
-				foundNewLine = true
-				next = model.NewBuffer()
-				*next = append(*next, (*buf)[begin+i+1:]...)
-				*buf = (*buf)[:begin+i+1]
-			}
+		begin := s.buf.Len()
+		end := n + begin
+		*s.buf = (*s.buf)[:end]
+		i := bytes.LastIndexByte((*s.buf)[begin:], '\n')
+		if i >= 0 {
+			foundNewLine = true
+			s.next = model.NewBuffer()
+			*s.next = append(*s.next, (*s.buf)[begin+i+1:]...)
+			*s.buf = (*s.buf)[:begin+i+1]
 		}
 	}
+
+	return true
 }

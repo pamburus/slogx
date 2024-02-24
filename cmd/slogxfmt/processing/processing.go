@@ -19,8 +19,6 @@ type Processor struct {
 }
 
 func (p *Processor) Run(ctx context.Context, input <-chan *Buffer, output chan<- *Buffer) error {
-	defer close(output)
-
 	buf := model.NewBuffer()
 	writer := *bytes.NewBuffer(*buf)
 
@@ -28,18 +26,14 @@ func (p *Processor) Run(ctx context.Context, input <-chan *Buffer, output chan<-
 	handler := p.handler(&writer)
 
 	for {
-		// slog.Debug("processor: reading input block")
 		select {
 		case <-ctx.Done():
-			// slog.Debug("processor: context done")
 			return ctx.Err()
 		case block, ok := <-input:
 			if !ok {
-				// slog.Debug("processor: end of stream")
 				return nil
 			}
 
-			// slog.Debug("processor: got block from input", slog.Int("len", block.Len()), slog.Int("cap", block.Cap()))
 			chunk, err := parser.Parse(*block)
 			if err != nil {
 				return err
@@ -51,17 +45,13 @@ func (p *Processor) Run(ctx context.Context, input <-chan *Buffer, output chan<-
 
 			*buf = writer.Bytes()
 
-			// slog.Debug("processor: sending block to output")
 			select {
 			case <-ctx.Done():
-				// slog.Debug("processor: context done")
 				return ctx.Err()
 			case output <- buf:
-				// slog.Debug("processor: sent block to output")
+				buf = model.NewBuffer()
+				writer = *bytes.NewBuffer(*buf)
 			}
-
-			buf = model.NewBuffer()
-			writer = *bytes.NewBuffer(*buf)
 		}
 	}
 }

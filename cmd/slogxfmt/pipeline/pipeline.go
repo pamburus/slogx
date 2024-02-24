@@ -66,15 +66,15 @@ func (p *Pipeline) Run(ctx context.Context, input io.Reader, output io.Writer) (
 		}
 	}()
 
-	sch := make(chan *Buffer, concurrency)
-	ichs := make([]chan *Buffer, concurrency)
-	ochs := make([]chan *Buffer, concurrency)
-	wcchs := make([]chan struct{}, concurrency)
+	stream := make(chan *Buffer, concurrency)
+	in := make([]chan *Buffer, concurrency)
+	out := make([]chan *Buffer, concurrency)
+	done := make([]chan struct{}, concurrency)
 
 	for i := 0; i < concurrency; i++ {
-		ichs[i] = make(chan *Buffer, 1)
-		ochs[i] = make(chan *Buffer, 1)
-		wcchs[i] = make(chan struct{})
+		in[i] = make(chan *Buffer, 1)
+		out[i] = make(chan *Buffer, 1)
+		done[i] = make(chan struct{})
 	}
 
 	var wg sync.WaitGroup
@@ -84,12 +84,22 @@ func (p *Pipeline) Run(ctx context.Context, input io.Reader, output io.Writer) (
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
+		defer close(stream)
 
 		slog.Debug("scanner: started")
 		defer slog.Debug("scanner: stopped")
 
-		err := scanning.Scan(ctx, input, sch)
-		if err != nil {
+		scanner := scanning.NewScanner(input)
+		for scanner.Next() {
+			select {
+			case <-ctx.Done():
+				return
+			case stream <- scanner.Block():
+				continue
+			}
+		}
+
+		if err := scanner.Err(); err != nil {
 			errs <- err
 		}
 	}()
@@ -100,7 +110,7 @@ func (p *Pipeline) Run(ctx context.Context, input io.Reader, output io.Writer) (
 		defer wg.Done()
 		defer func() {
 			for i := 0; i < concurrency; i++ {
-				close(ichs[i])
+				close(in[i])
 			}
 		}()
 
@@ -108,24 +118,19 @@ func (p *Pipeline) Run(ctx context.Context, input io.Reader, output io.Writer) (
 		defer slog.Debug("dispatcher: stopped")
 
 		for i := 0; ; i = (i + 1) % concurrency {
-			// slog.Debug("dispatcher: reading input block")
 			select {
 			case <-ctx.Done():
-				// slog.Debug("dispatcher: context done")
 				return
-			case block, ok := <-sch:
+			case block, ok := <-stream:
 				if !ok {
-					// slog.Debug("dispatcher: end of stream")
 					return
 				}
-				// slog.Debug("dispatcher: sending output block", slog.Int("id", i), slog.Int("len", block.Len()), slog.Int("cap", block.Cap()))
 				select {
 				case <-ctx.Done():
-					// slog.Debug("dispatcher: context done")
 					return
-				case ichs[i] <- block:
-				// slog.Debug("dispatcher: sent output block", slog.Int("id", i))
-				case <-wcchs[i]:
+				case in[i] <- block:
+					continue
+				case <-done[i]:
 					continue
 				}
 			}
@@ -138,12 +143,14 @@ func (p *Pipeline) Run(ctx context.Context, input io.Reader, output io.Writer) (
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			defer close(wcchs[i])
+			defer close(done[i])
+			defer close(out[i])
 
 			slog.Debug("worker: started", slog.Int("id", i))
 			defer slog.Debug("worker: stopped", slog.Int("id", i))
+
 			processor := processing.NewProcessor(p.parser, p.handler)
-			err := processor.Run(ctx, ichs[i], ochs[i])
+			err := processor.Run(ctx, in[i], out[i])
 			if err != nil {
 				errs <- err
 			}
@@ -152,17 +159,13 @@ func (p *Pipeline) Run(ctx context.Context, input io.Reader, output io.Writer) (
 
 	// Collect results from workers and write to output.
 	for i := 0; ; i = (i + 1) % concurrency {
-		// slog.Debug("writer: reading block from channel", slog.Int("id", i))
 		select {
 		case <-ctx.Done():
-			// slog.Debug("writer: context done")
 			return nil
-		case block, ok := <-ochs[i]:
+		case block, ok := <-out[i]:
 			if !ok {
-				// slog.Debug("writer: end of stream")
 				return nil
 			}
-			// slog.Debug("writer: writing block to stdout", slog.Int("id", i), slog.Int("len", block.Len()), slog.Int("cap", block.Cap()))
 			_, err := output.Write(*block)
 			if err != nil {
 				return err
