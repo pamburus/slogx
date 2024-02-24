@@ -5,7 +5,6 @@ import (
 	"errors"
 	"io"
 	"log/slog"
-	"os"
 	"runtime"
 	"sync"
 
@@ -17,7 +16,7 @@ import (
 func New(handler HandlerFactory) *Pipeline {
 	return &Pipeline{
 		handler,
-		runtime.NumCPU(),
+		0,
 		parsing.NewJSONParser(parsing.JSONParserConfig{}),
 	}
 }
@@ -41,9 +40,14 @@ func (p Pipeline) WithParser(parser ParserFactory) *Pipeline {
 }
 
 func (p *Pipeline) Run(ctx context.Context, input io.Reader, output io.Writer) (err error) {
-	errs := make(chan error, p.concurrency+2)
+	concurrency := p.concurrency
+	if concurrency == 0 {
+		concurrency = runtime.NumCPU()
+	}
+
+	errs := make(chan error, concurrency+2)
 	defer func() {
-		errSlice := make([]error, 0, p.concurrency+2)
+		errSlice := make([]error, 0, concurrency+2)
 		if err != nil {
 			errSlice = append(errSlice, err)
 		}
@@ -62,11 +66,11 @@ func (p *Pipeline) Run(ctx context.Context, input io.Reader, output io.Writer) (
 		}
 	}()
 
-	sch := make(chan *Buffer, p.concurrency)
-	ichs := make([]chan *Buffer, p.concurrency)
-	ochs := make([]chan *Buffer, p.concurrency)
+	sch := make(chan *Buffer, concurrency)
+	ichs := make([]chan *Buffer, concurrency)
+	ochs := make([]chan *Buffer, concurrency)
 
-	for i := 0; i < p.concurrency; i++ {
+	for i := 0; i < concurrency; i++ {
 		ichs[i] = make(chan *Buffer, 1)
 		ochs[i] = make(chan *Buffer, 1)
 	}
@@ -93,7 +97,7 @@ func (p *Pipeline) Run(ctx context.Context, input io.Reader, output io.Writer) (
 	go func() {
 		defer wg.Done()
 		defer func() {
-			for i := 0; i < p.concurrency; i++ {
+			for i := 0; i < concurrency; i++ {
 				close(ichs[i])
 			}
 		}()
@@ -101,7 +105,7 @@ func (p *Pipeline) Run(ctx context.Context, input io.Reader, output io.Writer) (
 		slog.Debug("dispatcher: started")
 		defer slog.Debug("dispatcher: stopped")
 
-		for i := 0; ; i = (i + 1) % p.concurrency {
+		for i := 0; ; i = (i + 1) % concurrency {
 			// slog.Debug("dispatcher: reading input block")
 			select {
 			case <-ctx.Done():
@@ -125,7 +129,7 @@ func (p *Pipeline) Run(ctx context.Context, input io.Reader, output io.Writer) (
 	}()
 
 	// Spawn workers.
-	for i := 0; i < p.concurrency; i++ {
+	for i := 0; i < concurrency; i++ {
 		i := i
 		wg.Add(1)
 		go func() {
@@ -142,7 +146,7 @@ func (p *Pipeline) Run(ctx context.Context, input io.Reader, output io.Writer) (
 	}
 
 	// Collect results from workers and write to output.
-	for i := 0; ; i = (i + 1) % p.concurrency {
+	for i := 0; ; i = (i + 1) % concurrency {
 		// slog.Debug("writer: reading block from channel", slog.Int("id", i))
 		select {
 		case <-ctx.Done():
@@ -154,7 +158,7 @@ func (p *Pipeline) Run(ctx context.Context, input io.Reader, output io.Writer) (
 				return nil
 			}
 			// slog.Debug("writer: writing block to stdout", slog.Int("id", i), slog.Int("len", block.Len()), slog.Int("cap", block.Cap()))
-			_, err := os.Stdout.Write(*block)
+			_, err := output.Write(*block)
 			if err != nil {
 				return err
 			}
