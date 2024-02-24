@@ -116,7 +116,7 @@ func defaultQuoteSet() [utf8.RuneSelf]bool {
 
 func stringValueExtraCheck(s string) bool {
 	switch s {
-	case "true", "false", "null":
+	case "true", "false", "null", "...":
 		return true
 	}
 

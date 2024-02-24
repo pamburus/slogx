@@ -119,7 +119,7 @@ func (h *Handler) Handle(ctx context.Context, record slog.Record) error {
 				record.Message = attr.Value.String()
 			default:
 				record.Message = ""
-				h.appendAttr(hs, attr, len(h.keyPrefix))
+				h.appendAttr(hs, attr, len(h.keyPrefix), false)
 			}
 		}
 	}
@@ -170,7 +170,7 @@ func (h *Handler) Handle(ctx context.Context, record slog.Record) error {
 	h.appendHandlerAttrs(hs)
 
 	record.Attrs(func(attr slog.Attr) bool {
-		h.appendAttr(hs, attr, len(h.keyPrefix))
+		h.appendAttr(hs, attr, len(h.keyPrefix), false)
 
 		return true
 	})
@@ -204,6 +204,8 @@ func (h *Handler) Handle(ctx context.Context, record slog.Record) error {
 		hs.buf.TrimBackByte(' ')
 		hs.buf.AppendString(h.stc.ExpandedMessageSign)
 		hs.expandingAttrs = true
+		w := max(hs.expandingKeysWidth+utf8.RuneCountInString(h.keyPrefix)+4, 40)
+		w = w + 16 - w%16 - utf8.RuneCountInString(h.keyPrefix)
 		for _, attr := range hs.attrsToExpand {
 			hs.buf.AppendByte('\n')
 			h.expandLine(hs)
@@ -212,8 +214,14 @@ func (h *Handler) Handle(ctx context.Context, record slog.Record) error {
 			hs.buf.AppendString(attr.KeyPrefix)
 			hs.buf.AppendString(attr.Key)
 			hs.buf.AppendString(h.stc.ExpandedKey.Suffix)
-			hs.buf.AppendByte('\n')
-			h.prepareToAppendValue(hs)
+			if attr.HasNewLines {
+				hs.buf.AppendByte('\n')
+				h.prepareToAppendValue(hs)
+			} else {
+				h.appendSpaces(hs, w-utf8.RuneCountInString(attr.KeyPrefix)-utf8.RuneCountInString(attr.Key))
+				hs.buf.AppendByte('=')
+				hs.buf.AppendByte(' ')
+			}
 			h.appendValue(hs, attr.Value, false, false)
 		}
 	}
@@ -348,6 +356,9 @@ func (h *Handler) hasUncachedAttrs() bool {
 
 // initAttrCache must be called under the cache.once lock.
 func (h *Handler) initAttrCache(hs *handleState) bool {
+	hs.initializingCache = true
+	hs.numFlatAttrs = h.cache.numFlatAttrs
+
 	pos := hs.buf.Len()
 	hs.buf.AppendString(h.cache.attrs)
 
@@ -356,18 +367,21 @@ func (h *Handler) initAttrCache(hs *handleState) bool {
 		group := h.groups.at(i)
 		end := group.i
 		for _, attr := range h.attrs[begin:end] {
-			h.appendAttr(hs, attr, group.prefixLen)
+			h.appendAttr(hs, attr, group.prefixLen, false)
 		}
 		begin = end
 	}
 
 	for _, attr := range h.attrs[begin:] {
-		h.appendAttr(hs, attr, len(h.keyPrefix))
+		h.appendAttr(hs, attr, len(h.keyPrefix), false)
 	}
 
 	h.cache.attrs = hs.buf[pos:].String()
 	h.cache.numGroups = h.groups.len()
 	h.cache.numAttrs = len(h.attrs)
+	h.cache.numFlatAttrs = hs.numFlatAttrs
+
+	hs.initializingCache = false
 
 	return true
 }
@@ -383,11 +397,11 @@ func (h *Handler) prepareToAppendValue(hs *handleState) {
 
 func (h *Handler) expandLine(hs *handleState) {
 	n := min(hs.timestampWidth+h.stc.AddedTimeWidth, len(spaces))
-	hs.buf.AppendString(spaces[:n])
+	h.appendSpaces(hs, n)
 	hs.buf.AppendBytes(hs.buf[hs.levelBegin:hs.messageBegin])
 }
 
-func (h *Handler) appendAttr(hs *handleState, attr slog.Attr, basePrefixLen int) {
+func (h *Handler) appendAttr(hs *handleState, attr slog.Attr, basePrefixLen int, expandAll bool) {
 	attr.Value = attr.Value.Resolve()
 	if rep := h.replaceAttr; rep != nil && attr.Value.Kind() != slog.KindGroup {
 		attr = rep(hs.groups, attr)
@@ -414,22 +428,30 @@ func (h *Handler) appendAttr(hs *handleState, attr slog.Attr, basePrefixLen int)
 			hs.keyPrefix.AppendByte('.')
 			hs.groups = append(hs.groups, attr.Key)
 		}
-		for _, groupAttr := range attr.Value.Group() {
-			h.appendAttr(hs, groupAttr, basePrefixLen)
+
+		groupAttrs := attr.Value.Group()
+		if !expandAll && len(groupAttrs)+hs.numFlatAttrs >= h.expansion.attrCountThreshold {
+			expandAll = true
+		}
+
+		for _, groupAttr := range groupAttrs {
+			h.appendAttr(hs, groupAttr, basePrefixLen, expandAll)
 		}
 		if attr.Key != "" {
 			hs.keyPrefix = hs.keyPrefix[:hs.keyPrefix.Len()-len(attr.Key)-1]
 			hs.groups = hs.groups[:len(hs.groups)-1]
 		}
 	} else {
-		if hs.buf.Len()-hs.messageBegin > 240 {
-			hs.addAttrToExpand(attr)
+		if !hs.initializingCache {
+			if expandAll || hs.buf.Len()-hs.messageBegin >= h.expansion.totalLengthThreshold || hs.numFlatAttrs >= h.expansion.attrCountThreshold || len(attr.Key) >= h.expansion.keyLengthThreshold {
+				hs.addAttrToExpand(attr)
 
-			return
+				return
+			}
 		}
 
 		h.appendKey(hs, attr.Key, basePrefixLen)
-		if !h.appendValue(hs, attr.Value, true, !hs.expandingAttrs) {
+		if !h.appendValue(hs, attr.Value, true, !hs.expandingAttrs && !hs.initializingCache) {
 			hs.addAttrToExpand(attr)
 		}
 		hs.buf.AppendByte(' ')
@@ -437,6 +459,7 @@ func (h *Handler) appendAttr(hs *handleState, attr slog.Attr, basePrefixLen int)
 }
 
 func (h *Handler) appendKey(hs *handleState, key string, basePrefixLen int) {
+	hs.numFlatAttrs++
 	hs.buf.AppendString(h.stc.Key.Prefix)
 	hs.buf.AppendString(h.keyPrefix[:basePrefixLen])
 	hs.buf.AppendBytes(hs.keyPrefix)
@@ -587,7 +610,7 @@ func (h *Handler) appendAnyValue(hs *handleState, v any, quote bool) {
 
 func (h *Handler) appendString(hs *handleState, ss *stylecache.StringStyle, s string, quote bool, allowExpansion bool) bool {
 	switch {
-	case hs.expandingAttrs:
+	case hs.expandingAttrs && !quote:
 		for {
 			i := strings.IndexByte(s, '\n')
 			if i == -1 {
@@ -618,6 +641,12 @@ func (h *Handler) appendString(hs *handleState, ss *stylecache.StringStyle, s st
 }
 
 func (h *Handler) appendAutoQuotedString(hs *handleState, ss *stylecache.StringStyle, v string, allowExpansion bool) bool {
+	if allowExpansion && !hs.expandingAttrs && len(v) >= int(h.expansion.attrLengthThreshold) {
+		hs.buf.AppendString(ss.Elipsis)
+
+		return false
+	}
+
 	switch {
 	case len(v) == 0:
 		hs.buf.AppendString(ss.Empty)
@@ -650,6 +679,7 @@ func (h *Handler) appendQuotedString(hs *handleState, ss *stylecache.StringStyle
 
 func (h *Handler) appendEscapedString(hs *handleState, ss *stylecache.StringStyle, s string, allowExpansion bool) bool {
 	p := 0
+	ne := 0
 
 	for i := 0; i < len(s); {
 		c := s[i]
@@ -661,24 +691,30 @@ func (h *Handler) appendEscapedString(hs *handleState, ss *stylecache.StringStyl
 			hs.buf.AppendString(s[p:i])
 			switch c {
 			case '\t':
+				ne++
 				hs.buf.AppendString(ss.Escape.Tab)
 			case '\r':
+				ne++
 				hs.buf.AppendString(ss.Escape.CR)
 			case '\n':
+				ne++
 				hs.buf.AppendString(ss.Escape.LF)
+				if allowExpansion && i >= int(h.expansion.multilineLengthThreshold) {
+					return false
+				}
 			case '\\':
+				ne++
 				hs.buf.AppendString(ss.Escape.Backslash)
 			case '"':
+				ne++
 				hs.buf.AppendString(ss.Escape.Quote)
 			default:
+				ne++
 				hs.buf.AppendString(ss.Escape.Style.Prefix)
 				hs.buf.AppendString(`\u00`)
 				hs.buf.AppendByte(hexDigits[c>>4])
 				hs.buf.AppendByte(hexDigits[c&0xf])
 				hs.buf.AppendString(ss.Escape.Style.Suffix)
-			}
-			if allowExpansion && i > int(h.expansionThreshold) {
-				return false
 			}
 			i++
 			p = i
@@ -686,6 +722,7 @@ func (h *Handler) appendEscapedString(hs *handleState, ss *stylecache.StringStyl
 		default:
 			v, wd := utf8.DecodeRuneInString(s[i:])
 			if v == utf8.RuneError && wd == 1 {
+				ne++
 				hs.buf.AppendString(s[p:i])
 				hs.buf.AppendString(ss.Escape.Style.Prefix)
 				hs.buf.AppendString(`\ufffd`)
@@ -695,6 +732,9 @@ func (h *Handler) appendEscapedString(hs *handleState, ss *stylecache.StringStyl
 			} else {
 				i += wd
 			}
+		}
+		if allowExpansion && ne >= int(h.expansion.escapeThreshold) {
+			return false
 		}
 	}
 
@@ -796,6 +836,14 @@ func (h *Handler) appendEvalPanic(hs *handleState, p any) bool {
 	hs.buf.AppendString(h.stc.EvalError.Suffix)
 
 	return done
+}
+
+func (h *Handler) appendSpaces(hs *handleState, n int) {
+	for n > len(spaces) {
+		hs.buf.AppendString(spaces)
+		n -= len(spaces)
+	}
+	hs.buf.AppendString(spaces[:n])
 }
 
 // ---
@@ -912,10 +960,11 @@ type group struct {
 // cache must be modified only under the once lock.
 // cache must be read either under the once lock or after the once lock is released.
 type cache struct {
-	attrs     string
-	numGroups int
-	numAttrs  int
-	once      sync.Once
+	attrs        string
+	numGroups    int
+	numAttrs     int
+	numFlatAttrs int
+	once         sync.Once
 }
 
 func (c *cache) fork(h *Handler) cache {
@@ -928,9 +977,10 @@ func (c *cache) fork(h *Handler) cache {
 	})
 
 	return cache{
-		attrs:     c.attrs,
-		numGroups: c.numGroups,
-		numAttrs:  c.numAttrs,
+		attrs:        c.attrs,
+		numGroups:    c.numGroups,
+		numAttrs:     c.numAttrs,
+		numFlatAttrs: c.numFlatAttrs,
 	}
 }
 

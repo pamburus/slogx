@@ -3,7 +3,9 @@ package slogtext
 import (
 	"context"
 	"log/slog"
+	"strings"
 	"sync"
+	"unicode/utf8"
 )
 
 // ---
@@ -17,19 +19,22 @@ func newHandleState(ctx context.Context, h *Handler) *handleState {
 }
 
 type handleState struct {
-	ctx            context.Context
-	buf            buffer
-	scratch        buffer
-	keyPrefix      buffer
-	groupPrefixLen int
-	groups         []string
-	attrsToExpand  []attrToExpand
-	levelBegin     int
-	messageBegin   int
-	timestampWidth int
-	expandingAttrs bool
-	pcs            [1]uintptr
-	sourceAttr     slog.Attr
+	ctx                context.Context
+	buf                buffer
+	scratch            buffer
+	keyPrefix          buffer
+	groupPrefixLen     int
+	groups             []string
+	attrsToExpand      []attrToExpand
+	levelBegin         int
+	messageBegin       int
+	timestampWidth     int
+	numFlatAttrs       int
+	expandingKeysWidth int
+	expandingAttrs     bool
+	initializingCache  bool
+	pcs                [1]uintptr
+	sourceAttr         slog.Attr
 }
 
 func (s *handleState) release() {
@@ -47,10 +52,13 @@ func (s *handleState) release() {
 	s.keyPrefix.Reset()
 	s.groupPrefixLen = 0
 	s.attrsToExpand = s.attrsToExpand[:0]
+	s.expandingKeysWidth = 0
 	s.expandingAttrs = false
+	s.initializingCache = false
 	s.levelBegin = 0
 	s.messageBegin = 0
 	s.timestampWidth = 0
+	s.numFlatAttrs = 0
 	s.pcs[0] = 0
 	s.sourceAttr = slog.Attr{}
 
@@ -58,15 +66,33 @@ func (s *handleState) release() {
 }
 
 func (s *handleState) addAttrToExpand(attr slog.Attr) {
+	hasNewLines := false
+	switch attr.Value.Kind() {
+	case slog.KindString:
+		hasNewLines = strings.IndexByte(attr.Value.String(), '\n') >= 0
+	case slog.KindAny:
+		switch v := attr.Value.Any().(type) {
+		case error:
+			hasNewLines = strings.IndexByte(v.Error(), '\n') >= 0
+		}
+	}
+
+	w := utf8.RuneCountInString(attr.Key) + utf8.RuneCount(s.keyPrefix)
 	s.attrsToExpand = append(s.attrsToExpand, attrToExpand{
-		Attr:      attr,
-		KeyPrefix: s.keyPrefix.String(),
+		Attr:        attr,
+		KeyPrefix:   s.keyPrefix.String(),
+		HasNewLines: hasNewLines,
 	})
+	if w > s.expandingKeysWidth {
+		s.expandingKeysWidth = w
+	}
+
 }
 
 type attrToExpand struct {
 	slog.Attr
-	KeyPrefix string
+	KeyPrefix   string
+	HasNewLines bool
 }
 
 // ---

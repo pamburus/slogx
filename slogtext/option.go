@@ -48,10 +48,13 @@ func WithSourceKey(key string) Option {
 	}
 }
 
-// WithMultilineExpansion sets whether to expand multiline strings in the log message.
-func WithMultilineExpansion(setting ExpansionThreshold) Option {
+// WithExpansion sets attribute expansion setting for the Handler.
+func WithExpansion(setting ExpansionSetting) Option {
 	return func(o *options) {
-		o.expansionThreshold = setting
+		if setting < 0 || setting >= numExpansionSettings {
+			setting = ExpansionAuto
+		}
+		o.expansion = expansionProfiles[setting]
 	}
 }
 
@@ -149,19 +152,17 @@ const (
 
 // ---
 
-// ExpansionThreshold is a setting for the multiline string expansion.
-type ExpansionThreshold int
+type ExpansionSetting int
 
 const (
-	ExpandAuto  ExpansionThreshold = 0           // ExpandAuto enables multiline string expansion if recommended.
-	ExpandNever                    = math.MaxInt // ExpandNever disables multiline string expansion.
-	ExpandAll                      = -1          // ExpandAll enables all multiline string expansion.
+	ExpansionAuto   ExpansionSetting = iota // ExpansionAuto enables attribute expansion when needed.
+	ExpansionNever                          // ExpansionNever disables attribute expansion completely.
+	ExpansionLow                            // ExpansionLow enables attribute expansion for multiline strings only that are 32+ characters long.
+	ExpansionMedium                         // ExpansionMedium enables attribute expansion for multiline strings, long strings and moderately escaped strings as well as very long messages.
+	ExpansionHigh                           // ExpansionHigh enables attribute expansion for most attributes if they are long or multiline.
+	ExpansionAlways                         // ExpansionAlways enables attribute expansion for all attributes.
+	numExpansionSettings
 )
-
-// ExpandIfOver returns an expansion threshold that expands multiline strings if length is over the given threshold.
-func ExpandIfOver(threshold int) ExpansionThreshold {
-	return ExpansionThreshold(threshold)
-}
 
 // ---
 
@@ -183,36 +184,36 @@ type LevelReplaceFunc func(context.Context, slog.Level) slog.Level
 // ---
 
 type options struct {
-	leveler            slog.Leveler
-	enableColor        ColorSetting
-	replaceAttr        AttrReplaceFunc
-	encodeTimestamp    TimeEncodeFunc
-	encodeTimeValue    TimeEncodeFunc
-	encodeDuration     DurationEncodeFunc
-	encodeSource       SourceEncodeFunc
-	replaceLevel       LevelReplaceFunc
-	includeSource      bool
-	sourceKey          string
-	levelOffset        bool
-	expansionThreshold ExpansionThreshold
-	bytesFormat        BytesFormat
-	loggerFromContext  func(context.Context) string
-	loggerKey          string
-	theme              Theme
+	leveler           slog.Leveler
+	enableColor       ColorSetting
+	replaceAttr       AttrReplaceFunc
+	encodeTimestamp   TimeEncodeFunc
+	encodeTimeValue   TimeEncodeFunc
+	encodeDuration    DurationEncodeFunc
+	encodeSource      SourceEncodeFunc
+	replaceLevel      LevelReplaceFunc
+	includeSource     bool
+	sourceKey         string
+	levelOffset       bool
+	expansion         expansionProfile
+	bytesFormat       BytesFormat
+	loggerFromContext func(context.Context) string
+	loggerKey         string
+	theme             Theme
 }
 
 func defaultOptions() options {
 	return options{
-		leveler:            slog.LevelInfo,
-		enableColor:        ColorNever,
-		encodeTimestamp:    timeFormat(time.StampMilli),
-		encodeTimeValue:    timeFormat(time.StampMilli),
-		encodeDuration:     DurationAsSeconds(),
-		encodeSource:       SourceShort(),
-		sourceKey:          slog.SourceKey,
-		replaceLevel:       doNotReplaceLevel,
-		expansionThreshold: 32,
-		theme:              themes.Default(),
+		leveler:         slog.LevelInfo,
+		enableColor:     ColorNever,
+		encodeTimestamp: timeFormat(time.StampMilli),
+		encodeTimeValue: timeFormat(time.StampMilli),
+		encodeDuration:  DurationAsSeconds(),
+		encodeSource:    SourceShort(),
+		sourceKey:       slog.SourceKey,
+		replaceLevel:    doNotReplaceLevel,
+		expansion:       expansionProfiles[ExpansionAuto],
+		theme:           themes.Default(),
 	}
 }
 
@@ -236,4 +237,24 @@ func timeFormat(layout string) TimeEncodeFunc {
 
 func doNotReplaceLevel(_ context.Context, level slog.Level) slog.Level {
 	return level
+}
+
+// ---
+
+var expansionProfiles = [numExpansionSettings]expansionProfile{
+	ExpansionAuto:   {32, 8, 128, 256, 16, 24},
+	ExpansionNever:  {math.MaxInt, math.MaxInt, math.MaxInt, math.MaxInt, math.MaxInt, math.MaxInt},
+	ExpansionLow:    {128, 16, 256, 512, 32, 48},
+	ExpansionMedium: {32, 8, 128, 256, 16, 24},
+	ExpansionHigh:   {32, 4, 64, 192, 8, 16},
+	ExpansionAlways: {0, 0, 0, 0, 0, 0},
+}
+
+type expansionProfile struct {
+	multilineLengthThreshold int
+	escapeThreshold          int
+	attrLengthThreshold      int
+	totalLengthThreshold     int
+	attrCountThreshold       int
+	keyLengthThreshold       int
 }
