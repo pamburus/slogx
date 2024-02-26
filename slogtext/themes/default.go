@@ -4,20 +4,20 @@ package themes
 func Default() Theme {
 	level := [NumLevels]Item{
 		{
-			Prefix: "\x1b[2m|\x1b[0;35m",
-			Suffix: "\x1b[0;2m|\x1b[m",
+			Prefix: "\x1b[2m[\x1b[0;35m",
+			Suffix: "\x1b[0;2m]\x1b[m",
 		},
 		{
-			Prefix: "\x1b[2m|\x1b[0;36m",
-			Suffix: "\x1b[0;2m|\x1b[m",
+			Prefix: "\x1b[2m[\x1b[0;36m",
+			Suffix: "\x1b[0;2m]\x1b[m",
 		},
 		{
-			Prefix: "\x1b[7;93m|",
-			Suffix: "|\x1b[m",
+			Prefix: "\x1b[7;93m[",
+			Suffix: "]\x1b[m",
 		},
 		{
-			Prefix: "\x1b[7;91m|",
-			Suffix: "|\x1b[m",
+			Prefix: "\x1b[7;90;31m[",
+			Suffix: "]\x1b[m",
 		},
 	}
 	levelValue := [NumLevels]Item{
@@ -39,7 +39,7 @@ func Default() Theme {
 		},
 	}
 
-	brace := Item{Prefix: "\x1b[95m", Suffix: "\x1b[m"}
+	brace := Item{Prefix: "\x1b[1m", Suffix: "\x1b[22m"}
 	sep := Item{Prefix: "\x1b[2m", Suffix: "\x1b[22m"}
 
 	return Theme{

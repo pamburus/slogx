@@ -1,5 +1,7 @@
 package stylecache
 
+import "strings"
+
 // ---
 
 // Style represents a pair of strings that can be used to style text.
@@ -30,6 +32,10 @@ func (s Style) prepend(prefix string) Style {
 }
 
 func (s Style) render(inner string) string {
+	if strings.TrimSpace(inner) == "" {
+		return inner
+	}
+
 	return s.Prefix + inner + s.Suffix
 }
 

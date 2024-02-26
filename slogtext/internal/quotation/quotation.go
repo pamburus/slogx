@@ -105,7 +105,6 @@ func defaultQuoteSet() [utf8.RuneSelf]bool {
 		']': true,
 		'{': true,
 		'}': true,
-		',': true,
 	}
 	for r := 0; r <= ' '; r++ {
 		needed[r] = true
