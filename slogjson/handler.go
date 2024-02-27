@@ -212,17 +212,21 @@ func (h *Handler) appendDurationValue(hs *handleState, value time.Duration) {
 
 func (h *Handler) appendEncodedValue(hs *handleState, value slog.Value) {
 	value = value.Resolve()
+
 	switch value.Kind() {
 	case slog.KindGroup:
 		if !isSafePlainGroup(value.Group()) {
 			break
 		}
+
 		fallthrough
+
 	case slog.KindString, slog.KindInt64, slog.KindFloat64, slog.KindUint64:
 		h.appendValue(hs, value)
+
 		return
-	default:
 	}
+
 	hs.buf.AppendString("null")
 }
 
@@ -233,7 +237,9 @@ func (h *Handler) appendFormattedValue(hs *handleState, format string, args ...a
 }
 
 func (h *Handler) appendStringValueFromBytes(hs *handleState, value []byte) {
-	h.appendString(hs, unsafe.String(&value[0], len(value)))
+	// This is safe because the buffer is not modified during the call to appendString
+	// and the created string is not used after appendString is finished.
+	h.appendString(hs, unsafe.String(&value[0], len(value))) // nolint
 	runtime.KeepAlive(&value)
 }
 
@@ -379,8 +385,7 @@ func (h *Handler) appendValue(hs *handleState, v slog.Value) {
 			}
 		case encoding.TextMarshaler:
 			if data, ok := safeResolveValueErr(h, hs, v.MarshalText); ok {
-				h.appendString(hs, unsafe.String(&data[0], len(data)))
-				runtime.KeepAlive(&data)
+				h.appendStringValueFromBytes(hs, data)
 			}
 		case *slog.Source:
 			h.appendSource(hs, *v)
@@ -399,7 +404,7 @@ func (h *Handler) appendBytesValue(hs *handleState, v []byte) {
 	default:
 		fallthrough
 	case BytesFormatString:
-		h.appendString(hs, unsafe.String(&v[0], len(v)))
+		h.appendStringValueFromBytes(hs, v)
 	case BytesFormatHex:
 		hex.Encode(hs.buf.Extend(hex.EncodedLen(len(v))), v)
 	case BytesFormatBase64:
@@ -447,7 +452,7 @@ func (h *Handler) appendAnyValue(hs *handleState, v any) {
 				hs.buf.AppendByte('}')
 			}
 		default:
-			h.appendFormattedValue(hs, "ERROR: slogjson: unsupported map type %T", v)
+			h.appendEvalErrorMessage(hs, "unsupported map type %T", v)
 		}
 	default:
 		h.appendFormattedValue(hs, "%v", v)
@@ -546,7 +551,11 @@ func (h *Handler) source(hs *handleState, pc uintptr) slog.Source {
 }
 
 func (h *Handler) appendEvalError(hs *handleState, err error) {
-	h.appendFormattedValue(hs, "![ERROR: %v]", err)
+	h.appendEvalErrorMessage(hs, "%v", err)
+}
+
+func (h *Handler) appendEvalErrorMessage(hs *handleState, format string, args ...any) {
+	h.appendFormattedValue(hs, "![ERROR: "+format+"]", args...)
 }
 
 func (h *Handler) appendEvalPanic(hs *handleState, p any) {
