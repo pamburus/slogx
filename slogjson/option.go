@@ -12,14 +12,18 @@ type Option func(*options)
 // WithLevel sets the leveler for the Handler.
 func WithLevel(level slog.Leveler) Option {
 	return func(o *options) {
-		o.leveler = level
+		if level != nil {
+			o.leveler = level
+		}
 	}
 }
 
 // WithAttrReplaceFunc sets the replace attribute function for the Handler.
 func WithAttrReplaceFunc(f AttrReplaceFunc) Option {
 	return func(o *options) {
-		o.replaceAttr = f
+		if f != nil {
+			o.replaceAttr = f
+		}
 	}
 }
 
@@ -33,7 +37,9 @@ func WithSource(include bool) Option {
 // WithSourceEncodeFunc sets the source encode function for the Handler.
 func WithSourceEncodeFunc(f SourceEncodeFunc) Option {
 	return func(o *options) {
-		o.encodeSource = f
+		if f != nil {
+			o.encodeSource = f
+		}
 	}
 }
 
