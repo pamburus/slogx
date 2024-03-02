@@ -11,18 +11,20 @@ import (
 	"github.com/pamburus/ansitty"
 	"github.com/pamburus/slogx/cmd/slogxfmt/parsing/levelparser"
 	"github.com/pamburus/slogx/cmd/slogxfmt/pipeline"
+	"github.com/pamburus/slogx/slogjson"
 	"github.com/pamburus/slogx/slogtext"
 	"github.com/pamburus/slogx/slogtext/themes"
 )
 
 type args struct {
-	Concurrency int      `arg:"--concurrency" help:"Number of concurrent workers."`
-	Color       string   `arg:"--color" help:"Color output control [auto|always|never]." default:"auto"`
-	C           bool     `arg:"-c" help:"Force color output."`
-	Level       string   `arg:"-l,--level" help:"Log level filter [debug|info|warn|error]." default:"debug"`
-	Output      string   `arg:"-o" help:"Output file."`
-	Expansion   string   `arg:"-x,--expansion" help:"Attribute expansion control [auto|always|never|low|medium|high]." default:"auto"`
-	Inputs      []string `arg:"positional" help:"Input files to process."`
+	Concurrency  int      `arg:"--concurrency" help:"Number of concurrent workers."`
+	Color        string   `arg:"--color" help:"Color output control [auto|always|never]." default:"auto"`
+	C            bool     `arg:"-c" help:"Force color output."`
+	Level        string   `arg:"-l,--level" help:"Log level filter [debug|info|warn|error]." default:"debug"`
+	Output       string   `arg:"-o" help:"Output file."`
+	OutputFormat string   `arg:"--output-format" help:"Output format."`
+	Expansion    string   `arg:"-x,--expansion" help:"Attribute expansion control [auto|always|never|low|medium|high]." default:"auto"`
+	Inputs       []string `arg:"positional" help:"Input files to process."`
 }
 
 func main() {
@@ -87,6 +89,24 @@ func run() error {
 	}
 
 	handler := func(level slog.Level, color slogtext.ColorSetting) pipeline.HandlerFactory {
+		if args.OutputFormat == "json" {
+			return func(w io.Writer) slog.Handler {
+				return slogjson.NewHandler(w,
+					slogjson.WithLevel(level),
+					slogjson.WithSource(true),
+				)
+			}
+		}
+
+		if args.OutputFormat == "logfmt" {
+			return func(w io.Writer) slog.Handler {
+				return slog.NewTextHandler(w, &slog.HandlerOptions{
+					Level:     level,
+					AddSource: true,
+				})
+			}
+		}
+
 		return func(w io.Writer) slog.Handler {
 			return slogtext.NewHandler(w,
 				slogtext.WithLevel(level),
