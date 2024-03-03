@@ -224,7 +224,7 @@ func (p *Parser) parseCaller(value *fastjson.Value) (slog.Value, error) {
 			source.Function = s
 		}
 
-		return slog.AnyValue(source), nil
+		return slog.AnyValue(&source), nil
 
 	default:
 		return slog.Value{}, errUnexpectedCallerType

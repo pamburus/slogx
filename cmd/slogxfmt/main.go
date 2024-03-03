@@ -103,6 +103,23 @@ func run() error {
 				return slog.NewTextHandler(w, &slog.HandlerOptions{
 					Level:     level,
 					AddSource: true,
+					ReplaceAttr: func(groups []string, a slog.Attr) slog.Attr {
+						if len(groups) == 0 && a.Key == slog.SourceKey {
+							switch a.Value.Kind() {
+							case slog.KindAny:
+								switch v := a.Value.Any().(type) {
+								case *slog.Source:
+									if v.File == "" {
+										return slog.Attr{}
+									}
+
+									return slog.String(slog.SourceKey, fmt.Sprintf("%s:%d", v.File, v.Line))
+								}
+							}
+						}
+
+						return a
+					},
 				})
 			}
 		}
