@@ -20,6 +20,7 @@ func newHandleState(ctx context.Context, h *Handler) *handleState {
 
 type handleState struct {
 	ctx                context.Context
+	level              slog.Level
 	buf                buffer
 	scratch            buffer
 	keyPrefix          buffer

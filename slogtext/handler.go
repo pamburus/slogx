@@ -108,6 +108,7 @@ func (h *Handler) Handle(ctx context.Context, record slog.Record) error {
 	}
 
 	hs.levelBegin = hs.buf.Len()
+	hs.level = record.Level
 
 	h.appendLevel(hs, record.Level)
 
@@ -398,7 +399,8 @@ func (h *Handler) prepareToAppendValue(hs *handleState) {
 func (h *Handler) expandLine(hs *handleState) {
 	n := hs.timestampWidth + h.stc.AddedTimeWidth + 1
 	h.appendSpaces(hs, n)
-	hs.buf.AppendBytes(hs.buf[hs.levelBegin:hs.messageBegin])
+	hs.buf.AppendBytes(hs.buf[hs.levelBegin:hs.levelBegin])
+	h.appendLevelExpansion(hs, hs.level)
 }
 
 func (h *Handler) appendAttr(hs *handleState, attr slog.Attr, basePrefixLen int, expandAll bool) {
@@ -753,6 +755,10 @@ func (h *Handler) appendLevel(hs *handleState, level slog.Level) {
 	} else {
 		hs.buf.AppendString(h.stc.LevelLabel[levelIndex(level)])
 	}
+}
+
+func (h *Handler) appendLevelExpansion(hs *handleState, level slog.Level) {
+	hs.buf.AppendString(h.stc.LevelExpansion[levelIndex(level)])
 }
 
 func (h *Handler) appendLevelWithOffset(hs *handleState, level slog.Level) {

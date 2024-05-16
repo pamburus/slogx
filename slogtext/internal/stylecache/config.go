@@ -17,6 +17,7 @@ type Config struct {
 	EvalPanicPrefix  string
 	EvalPanicSuffix  string
 	LevelLabels      [NumLevels]string
+	LevelExpansions  [NumLevels]string
 	LevelNames       [NumLevels]string
 }
 
@@ -37,6 +38,7 @@ func DefaultConfig() *Config {
 		EvalPanicPrefix:  "![PANIC:",
 		EvalPanicSuffix:  "]",
 		LevelLabels:      [NumLevels]string{"DBG", "INF", "WRN", "ERR"},
+		LevelExpansions:  [NumLevels]string{" - ", " - ", " - ", " - "},
 		LevelNames:       [NumLevels]string{"DEBUG", "INFO", "WARN", "ERROR"},
 	}
 }
