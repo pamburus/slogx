@@ -70,7 +70,7 @@ func Default() Theme {
 			},
 		},
 		Key: Item{
-			Prefix: "\x1b[32m",
+			Prefix: "\x1b[94m",
 			Suffix: "\x1b[m",
 		},
 		KeyValueSep: Item{
@@ -100,7 +100,7 @@ func Default() Theme {
 			Suffix: "\x1b[m",
 		},
 		NumberValue: Item{
-			Prefix: "\x1b[94m",
+			Prefix: "\x1b[32m",
 			Suffix: "\x1b[m",
 		},
 		NullValue: Item{
@@ -126,7 +126,7 @@ func Default() Theme {
 			},
 		},
 		DurationValue: Item{
-			Prefix: "\x1b[94m",
+			Prefix: "\x1b[32m",
 			Suffix: "\x1b[m",
 		},
 		Array: ArrayItem{
@@ -141,7 +141,7 @@ func Default() Theme {
 			End:         brace,
 		},
 		ExpandedKey: Item{
-			Prefix: "\x1b[32m",
+			Prefix: "\x1b[94m",
 			Suffix: "\x1b[m",
 		},
 		ExpandedMessageSign: Item{
