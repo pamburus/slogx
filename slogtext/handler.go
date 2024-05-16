@@ -220,7 +220,7 @@ func (h *Handler) Handle(ctx context.Context, record slog.Record) error {
 				h.prepareToAppendValue(hs)
 			} else {
 				h.appendSpaces(hs, w-utf8.RuneCountInString(attr.KeyPrefix)-utf8.RuneCountInString(attr.Key))
-				hs.buf.AppendByte('=')
+				hs.buf.AppendString(h.stc.ExpandedKeyValueSep)
 				hs.buf.AppendByte(' ')
 			}
 			h.appendValue(hs, attr.Value, false, false)

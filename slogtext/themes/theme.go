@@ -31,6 +31,7 @@ type Theme struct {
 	ExpandedKey         Item
 	ExpandedKeySign     Item
 	ExpandedMessageSign Item
+	ExpandedKeyValueSep Item
 	Unresolved          UnresolvedItem
 }
 

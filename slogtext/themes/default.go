@@ -152,6 +152,10 @@ func Default() Theme {
 			Prefix: "\x1b[2m",
 			Suffix: "\x1b[22m",
 		},
+		ExpandedKeyValueSep: Item{
+			Prefix: "\x1b[2m",
+			Suffix: "\x1b[22m",
+		},
 		Unresolved: UnresolvedItem{
 			Begin: Item{
 				Prefix: "\x1b[31;2m",

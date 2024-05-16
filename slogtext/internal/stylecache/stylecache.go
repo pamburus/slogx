@@ -35,6 +35,7 @@ func New(theme *Theme, cfg *Config) *StyleCache {
 		MapPairSep:          st(theme.Map.PairSep).render(cfg.MapPairSep),
 		MapKeyValueSep:      st(theme.Map.KeyValueSep).render(cfg.MapKeyValueSep),
 		ExpandedMessageSign: st(theme.ExpandedMessageSign).render(syntax.ExpandedMessageSuffix),
+		ExpandedKeyValueSep: st(theme.ExpandedKeyValueSep).render(syntax.ExpandedKeyValueSep),
 	}
 
 	c.EmptyArray = strings.TrimSpace(c.Array.Prefix) + strings.TrimSpace(c.Array.Suffix)
@@ -83,6 +84,7 @@ type StyleCache struct {
 	MapKeyValueSep      string
 	Null                string
 	ExpandedMessageSign string
+	ExpandedKeyValueSep string
 	AddedTimeWidth      int
 }
 

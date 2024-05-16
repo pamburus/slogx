@@ -4,6 +4,9 @@ package syntax
 // ExpandedMessageSuffix is the suffix for expansion messages.
 const ExpandedMessageSuffix = " >>"
 
+// ExpandedKeyValueSep is the separator between key and value in expansion messages.
+const ExpandedKeyValueSep = "="
+
 // ExpandedKeyPrefix is the prefix for expanded keys.
 const ExpandedKeyPrefix = "  >- "
 
