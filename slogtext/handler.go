@@ -397,7 +397,10 @@ func (h *Handler) prepareToAppendValue(hs *handleState) {
 }
 
 func (h *Handler) expandLine(hs *handleState) {
-	n := hs.timestampWidth + h.stc.AddedTimeWidth + 1
+	n := hs.timestampWidth + h.stc.AddedTimeWidth
+	if n != 0 {
+		n++
+	}
 	h.appendSpaces(hs, n)
 	hs.buf.AppendBytes(hs.buf[hs.levelBegin:hs.levelBegin])
 	h.appendLevelExpansion(hs, hs.level)
