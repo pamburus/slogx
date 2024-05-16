@@ -39,7 +39,7 @@ func (p *Parser) Parse(input []byte) *Chunk {
 		}
 
 		lineBytes := input[:i]
-		input = input[i+1:]
+		input = input[min(i+1, len(input)):]
 		p.stat.LinesTotal++
 
 		line, err := p.p.ParseBytes(lineBytes)
