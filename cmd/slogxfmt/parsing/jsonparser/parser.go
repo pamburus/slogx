@@ -53,7 +53,7 @@ func (p *Parser) Parse(input []byte) *Chunk {
 			continue
 		}
 
-		record, err := p.parseLine(chunk, line)
+		record, err := p.parseLine(line)
 		if err != nil {
 			p.stat.LinesInvalid++
 			continue
@@ -69,16 +69,16 @@ func (p *Parser) Stat() Stat {
 	return p.stat
 }
 
-func (p *Parser) parseLine(chunk *Chunk, line *fastjson.Value) (slog.Record, error) {
+func (p *Parser) parseLine(line *fastjson.Value) (slog.Record, error) {
 	object, err := line.Object()
 	if err != nil {
 		return slog.Record{}, err
 	}
 
-	return p.parseLineObject(chunk, object)
+	return p.parseLineObject(object)
 }
 
-func (p *Parser) parseLineObject(chunk *Chunk, object *fastjson.Object) (slog.Record, error) {
+func (p *Parser) parseLineObject(object *fastjson.Object) (slog.Record, error) {
 	var record slog.Record
 	attrs := make([]slog.Attr, 0, 32)
 
