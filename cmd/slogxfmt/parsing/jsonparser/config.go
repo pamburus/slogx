@@ -19,7 +19,7 @@ type Config struct {
 
 func (c Config) withDefaults() Config {
 	if len(c.TimeKeys) == 0 {
-		c.TimeKeys = []string{slog.TimeKey, "ts"}
+		c.TimeKeys = []string{slog.TimeKey, "ts", "timestamp"}
 	}
 
 	if len(c.LevelKeys) == 0 {
