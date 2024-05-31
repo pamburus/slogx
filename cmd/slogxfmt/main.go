@@ -23,6 +23,7 @@ type args struct {
 	Level        string   `arg:"-l,--level" help:"Log level filter [debug|info|warn|error]." default:"debug"`
 	Output       string   `arg:"-o" help:"Output file."`
 	OutputFormat string   `arg:"--output-format" help:"Output format."`
+	TimeFormat   string   `arg:"--time-format" help:"Time format." default:"Jan 02 15:04:05.000"`
 	Theme        string   `arg:"--theme,env:SLOGXFMT_THEME" help:"Theme." default:"fancy"`
 	Expansion    string   `arg:"-x,--expansion" help:"Attribute expansion control [auto|always|never|low|medium|high]." default:"auto"`
 	Inputs       []string `arg:"positional" help:"Input files to process."`
@@ -144,6 +145,7 @@ func run() error {
 				slogtext.WithExpansion(expansion),
 				slogtext.WithSource(true),
 				slogtext.WithTheme(theme),
+				slogtext.WithTimeFormat(args.TimeFormat),
 				slogtext.WithLoggerKey("logger"),
 			)
 		}
