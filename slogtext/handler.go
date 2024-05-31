@@ -309,7 +309,7 @@ func (h *Handler) fork() *Handler {
 func (h *Handler) appendTimestamp(hs *handleState, value time.Time) {
 	begin := hs.buf.Len()
 	hs.buf = h.encodeTimestamp(hs.buf, value)
-	hs.timestampWidth = hs.buf.Len() - begin
+	hs.timestampWidth = utf8.RuneCount(hs.buf[begin:])
 }
 
 func (h *Handler) appendTime(hs *handleState, value time.Time, quote bool) {
