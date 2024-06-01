@@ -16,12 +16,12 @@ func Fancy() Theme {
 			Suffix: "\x1b[0;2m│\x1b[m",
 		},
 		{
-			Prefix: "\x1b[7;93m│",
-			Suffix: "│\x1b[m",
+			Prefix: "\x1b[7;93m▌",
+			Suffix: "▐\x1b[m",
 		},
 		{
-			Prefix: "\x1b[7;90;31m│",
-			Suffix: "│\x1b[m",
+			Prefix: "\x1b[7;90;91m▌",
+			Suffix: "▐\x1b[m",
 		},
 	}
 
