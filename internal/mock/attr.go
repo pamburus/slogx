@@ -20,6 +20,7 @@ func AttrsUsingFunc(n int, fn func(func(slog.Attr))) []Attr {
 	}
 
 	testAttrs := make([]Attr, 0, n)
+
 	fn(func(a slog.Attr) {
 		testAttrs = append(testAttrs, Attr{
 			Key:   a.Key,

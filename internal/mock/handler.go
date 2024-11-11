@@ -78,8 +78,8 @@ type HandlerHandle struct {
 	Record   Record
 }
 
-func (h HandlerHandle) clone() any {
-	h.Record = h.Record.clone().(Record)
+func (h HandlerHandle) cloneAny() any {
+	h.Record = h.Record.clone()
 
 	return h
 }
@@ -97,7 +97,11 @@ type HandlerWithAttrs struct {
 	Attrs    []Attr
 }
 
-func (h HandlerWithAttrs) clone() any {
+func (h HandlerWithAttrs) cloneAny() any {
+	return h.clone()
+}
+
+func (h HandlerWithAttrs) clone() HandlerWithAttrs {
 	h.Attrs = slices.Clone(h.Attrs)
 
 	return h
@@ -114,7 +118,7 @@ type HandlerWithGroup struct {
 
 var (
 	_ slog.Handler = Handler{}
-	_ cloner       = (*HandlerHandle)(nil)
+	_ anyCloner    = (*HandlerHandle)(nil)
 	_ timeRemover  = (*HandlerHandle)(nil)
-	_ cloner       = (*HandlerWithAttrs)(nil)
+	_ anyCloner    = (*HandlerWithAttrs)(nil)
 )

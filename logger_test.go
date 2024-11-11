@@ -3,12 +3,11 @@ package slogx_test
 import (
 	"context"
 	"log/slog"
+	"testing"
 
 	. "github.com/pamburus/go-tst/tst"
 	"github.com/pamburus/slogx"
 	"github.com/pamburus/slogx/internal/mock"
-
-	"testing"
 )
 
 func TestLogger(tt *testing.T) {

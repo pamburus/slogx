@@ -20,17 +20,14 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
         with:
-          go-version: '1.21'
+          go-version: '1.23'
           cache-dependency-path: |
             go.sum
             test/go.sum
       - name: Lint .
-        uses: golangci/golangci-lint-action@v3
+        uses: golangci/golangci-lint-action@v6
         with:
-          version: v1.56
-          # Disable caching as a workaround for https://github.com/golangci/golangci-lint-action/issues/135.
-          # The line can be removed once the golangci-lint issue is resolved.
-          skip-pkg-cache: true
+          version: v1.61
       - name: Lint other modules
         run: go list -m -f '{{.Dir}}/...' | golangci-lint run
 
@@ -39,7 +36,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        go: ['1.21']
+        go: ['1.23']
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5

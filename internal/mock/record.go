@@ -33,7 +33,11 @@ func (r Record) WithoutTime() Record {
 	return r
 }
 
-func (r Record) clone() any {
+func (r Record) cloneAny() any {
+	return r.clone()
+}
+
+func (r Record) clone() Record {
 	r.Attrs = slices.Clone(r.Attrs)
 
 	return r
@@ -53,6 +57,4 @@ func recordAttrs(record slog.Record) []Attr {
 
 // ---
 
-var (
-	_ cloner = (*Record)(nil)
-)
+var _ anyCloner = (*Record)(nil)

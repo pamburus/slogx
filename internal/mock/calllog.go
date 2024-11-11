@@ -43,8 +43,8 @@ func (l CallList) WithoutTime() CallList {
 	l = slices.Clone(l)
 
 	for i := range l {
-		if item, ok := l[i].(cloner); ok {
-			l[i] = item.clone()
+		if item, ok := l[i].(anyCloner); ok {
+			l[i] = item.cloneAny()
 		}
 
 		if item, ok := l[i].(timeRemover); ok {

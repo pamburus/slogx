@@ -12,6 +12,8 @@ import (
 
 func BenchmarkLogging(b *testing.B) {
 	testEnabled := func(ctx context.Context, b *testing.B) {
+		b.Helper()
+
 		b.Run("Enabled", func(b *testing.B) {
 			b.ResetTimer()
 			for i := 0; i != b.N; i++ {
@@ -21,6 +23,8 @@ func BenchmarkLogging(b *testing.B) {
 	}
 
 	testLogAttrs := func(ctx context.Context, b *testing.B) {
+		b.Helper()
+
 		b.Run("Log", func(b *testing.B) {
 			b.Run("NoAttrs", func(b *testing.B) {
 				b.ResetTimer()
@@ -38,6 +42,8 @@ func BenchmarkLogging(b *testing.B) {
 	}
 
 	testWith := func(ctx context.Context, b *testing.B) {
+		b.Helper()
+
 		b.Run("With", func(b *testing.B) {
 			b.Run("ThreeAttrs", func(b *testing.B) {
 				b.ResetTimer()
@@ -55,6 +61,8 @@ func BenchmarkLogging(b *testing.B) {
 	}
 
 	testWithAndLog := func(ctx context.Context, b *testing.B) {
+		b.Helper()
+
 		b.Run("LogWithAndLog", func(b *testing.B) {
 			b.Run("TwoAndThreeAttrs", func(b *testing.B) {
 				b.ResetTimer()
@@ -81,6 +89,8 @@ func BenchmarkLogging(b *testing.B) {
 	}
 
 	testLogAfterWith := func(ctx context.Context, b *testing.B) {
+		b.Helper()
+
 		b.Run("LogAfterWith", func(b *testing.B) {
 			b.Run("TwoAndThreeAttrs", func(b *testing.B) {
 				ctx := slogc.With(ctx, slog.String("a", "av"), slog.String("b", "bv"))
@@ -107,6 +117,8 @@ func BenchmarkLogging(b *testing.B) {
 	}
 
 	testAllForContext := func(ctx context.Context, b *testing.B) {
+		b.Helper()
+
 		testEnabled(ctx, b)
 		testLogAttrs(ctx, b)
 		testWith(ctx, b)
@@ -115,6 +127,8 @@ func BenchmarkLogging(b *testing.B) {
 	}
 
 	testWithSource := func(ctx context.Context, b *testing.B, handler slog.Handler, enabled bool) {
+		b.Helper()
+
 		name := "WithSource"
 		if !enabled {
 			name = "WithoutSource"
@@ -135,6 +149,8 @@ func BenchmarkLogging(b *testing.B) {
 	}
 
 	testAllForHandler := func(ctx context.Context, b *testing.B, handler slog.Handler) {
+		b.Helper()
+
 		testWithSource(ctx, b, handler, false)
 		testWithSource(ctx, b, handler, true)
 	}

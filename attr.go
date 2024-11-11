@@ -36,11 +36,12 @@ func (r AttrPack) Len() int {
 
 // Enumerate calls f on each Attr in the AttrPack.
 func (r AttrPack) Enumerate(f func(slog.Attr) bool) {
-	for i := 0; i < r.nFront; i++ {
+	for i := range r.nFront {
 		if !f(r.front[i]) {
 			return
 		}
 	}
+
 	for _, a := range r.back {
 		if !f(a) {
 			return
@@ -56,17 +57,21 @@ func (r *AttrPack) Add(attrs ...slog.Attr) {
 		if isEmptyGroup(a.Value) {
 			continue
 		}
+
 		r.front[r.nFront] = a
 		r.nFront++
 	}
+
 	if cap(r.back) > len(r.back) {
 		end := r.back[:len(r.back)+1][len(r.back)]
 		if !end.Equal(slog.Attr{}) {
 			panic("multiple copies of a slogx.AttrPack modified the shared state simultaneously, use Clone to avoid this")
 		}
 	}
+
 	ne := countEmptyGroups(attrs[i:])
 	r.back = slices.Grow(r.back, len(attrs[i:])-ne)
+
 	for _, a := range attrs[i:] {
 		if !isEmptyGroup(a.Value) {
 			r.back = append(r.back, a)
@@ -90,6 +95,7 @@ func (r *AttrPack) Collect() []slog.Attr {
 
 func countEmptyGroups(as []slog.Attr) int {
 	n := 0
+
 	for _, a := range as {
 		if isEmptyGroup(a.Value) {
 			n++
