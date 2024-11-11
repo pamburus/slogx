@@ -13,67 +13,148 @@ linters-settings:
     min-complexity: 32
   goimports:
     local-prefixes: github.com/pamburus
-  govet:
-    check-shadowing: false
   lll:
     line-length: 140
-  maligned:
-    suggest-new: true
   nolintlint:
-    allow-unused: false # report any unused nolint directives
+    allow-unused: true # report any unused nolint directives
     require-explanation: true # require an explanation for nolint directives
-    require-specific: false # don't require nolint directives to be specific about which linter is being skipped
+    require-specific: true # don't require nolint directives to be specific about which linter is being skipped
+  tagliatelle:
+    # Check the struck tag name case.
+    case:
+      # Use the struct field name to check the name of the struct tag.
+      # Default: false
+      use-field-name: true
+      rules:
+        # Any struct tag type can be used.
+        # Support string case: `camel`, `pascal`, `kebab`, `snake`, `upperSnake`, `goCamel`, `goPascal`, `goKebab`, `goSnake`, `upper`, `lower`, `header`.
+        json: kebab
+        yaml: kebab
 
 linters:
-  # Please, do not use `enable-all`: it's deprecated and will be removed soon.
-  # Inverted configuration with `enable-all` and `disable` is not scalable during updates of golangci-lint.
+  # please, do not use `enable-all`: it's deprecated and will be removed soon.
+  # inverted configuration with `enable-all` and `disable` is not scalable during updates of golangci-lint
   disable-all: true
   enable:
+    - asasalint
     - asciicheck
+    - bidichk
+    - bodyclose
+    - canonicalheader
+    - containedctx
+    - copyloopvar
+    - decorder
+    - dogsled
     - dupl
+    - dupword
+    - durationcheck
     - errcheck
-    - exportloopref
+    - errchkjson
+    - errname
+    - errorlint
+    - fatcontext
+    - forbidigo
+    - forcetypeassert
+    - ginkgolinter
+    - gocheckcompilerdirectives
+    - gochecknoinits
+    - gochecksumtype
+    - gocognit
+    - goconst
     - gocritic
     - gocyclo
     - godot
+    - godox
     - gofmt
+    - gofumpt
+    - goheader
     - goimports
+    - gomoddirectives
+    - gomodguard
+    - goprintffuncname
     - gosec
     - gosimple
+    - gosmopolitan
     - govet
+    - grouper
+    - importas
     - ineffassign
+    - interfacebloat
+    - intrange
+    - lll
+    - loggercheck
+    - maintidx
+    - makezero
+    - mirror
     - misspell
+    - musttag
     - nakedret
+    - nestif
+    - nilerr
+    - nilnil
     - nlreturn
+    - noctx
+    - nolintlint
+    - nonamedreturns
+    - nosprintfhostport
+    - perfsprint
     - prealloc
+    - predeclared
+    - promlinter
+    - protogetter
+    - reassign
     - revive
+    - rowserrcheck
+    - sloglint
+    - spancheck
+    - sqlclosecheck
     - staticcheck
     - stylecheck
-    - typecheck
+    - tagalign
+    - tagliatelle
+    - tenv
+    - testableexamples
+    - testifylint
+    - testpackage
+    - thelper
+    - tparallel
     - unconvert
     - unparam
     - unused
-    - vet
-    - vetshadow
+    - usestdlibvars
+    - wastedassign
     - whitespace
+    - wrapcheck
+    - wsl
+    - zerologlint
 
 issues:
-  # Disable this option because it causes golint to hide almost all issues.
+  # Disable this option because it causes golint to hide almost all issues
   exclude-use-default: false
-  # Excluding configuration per-path, per-linter, per-text and per-source.
+  # Excluding configuration per-path, per-linter, per-text and per-source
   exclude-rules:
-    # The dot-imports linter is disabled for the test files because it is convenient to dot-import third-party testing frameworks.
-    - linters: [revive]
-      text: '^dot-imports: '
-      paths:
-        - '*_test.go'
-    # The staticcheck linter reports that `nil` context is passed, but it is intentionally done for the sake of the tests.
-    - linters: [staticcheck]
-      text: '^SA1012:'
-      paths:
-        - '*_test.go'
-    # The duplicate lines in the benchmark_test.go file are expected because any attempt to deduplicate them would affect the performance of the benchmark.
-    - linters: [dupl]
-      text: 'lines are duplicate'
-      paths:
-        - 'benchmark_test.go'
+    - linters: [gocritic]
+      text: '^singleCaseSwitch:'
+    # - linters: [gosec]
+    #   text: '^G115:' # false positives
+    - linters: [gosec] # Use of unsafe calls should be audited
+      text: '^G103:'   # `unsafe` is used for optimizations and is covered by unit tests
+    - path: '_test\.go$'
+      text: '^dot-imports:'
+      linters:
+        - revive
+    - path: '_test\.go$'
+      linters:
+        - dupl
+        - err113
+        - gocognit
+        - goconst
+        - lll
+        - maintidx
+        - testpackage
+        - varnamelen
+        - wsl
+    - linters: [wsl]
+      text: '^append only allowed to cuddle with appended value$'
+    - linters: [wrapcheck]
+      text: '^error returned from interface method should be wrapped:'

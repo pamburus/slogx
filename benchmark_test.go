@@ -20,7 +20,11 @@ func BenchmarkLogger(b *testing.B) {
 }
 
 func benchmarkSLogXLogger(b *testing.B, longTerm bool) {
+	b.Helper()
+
 	testEnabled := func(b *testing.B, logger *slogx.Logger) {
+		b.Helper()
+
 		b.Run("Enabled", func(b *testing.B) {
 			b.ResetTimer()
 			for i := 0; i != b.N; i++ {
@@ -30,6 +34,8 @@ func benchmarkSLogXLogger(b *testing.B, longTerm bool) {
 	}
 
 	testLogAttrs := func(b *testing.B, logger *slogx.Logger) {
+		b.Helper()
+
 		b.Run("LogAttrs", func(b *testing.B) {
 			b.Run("NoAttrs", func(b *testing.B) {
 				b.ResetTimer()
@@ -47,6 +53,8 @@ func benchmarkSLogXLogger(b *testing.B, longTerm bool) {
 	}
 
 	testWith := func(b *testing.B, logger *slogx.Logger) {
+		b.Helper()
+
 		b.Run("With", func(b *testing.B) {
 			b.Run("ThreeAttrs", func(b *testing.B) {
 				b.ResetTimer()
@@ -64,6 +72,8 @@ func benchmarkSLogXLogger(b *testing.B, longTerm bool) {
 	}
 
 	testWithLongTerm := func(b *testing.B, logger *slogx.Logger) {
+		b.Helper()
+
 		b.Run("With", func(b *testing.B) {
 			b.Run("ThreeAttrs", func(b *testing.B) {
 				b.ResetTimer()
@@ -81,6 +91,8 @@ func benchmarkSLogXLogger(b *testing.B, longTerm bool) {
 	}
 
 	testWithAndLog := func(b *testing.B, logger *slogx.Logger) {
+		b.Helper()
+
 		b.Run("LogWithAndLog", func(b *testing.B) {
 			b.Run("TwoAndThreeAttrs", func(b *testing.B) {
 				b.ResetTimer()
@@ -107,6 +119,8 @@ func benchmarkSLogXLogger(b *testing.B, longTerm bool) {
 	}
 
 	testWithAndLogLongTerm := func(b *testing.B, logger *slogx.Logger) {
+		b.Helper()
+
 		b.Run("LogWithAndLog", func(b *testing.B) {
 			b.Run("TwoAndThreeAttrs", func(b *testing.B) {
 				b.ResetTimer()
@@ -133,6 +147,8 @@ func benchmarkSLogXLogger(b *testing.B, longTerm bool) {
 	}
 
 	testLogAfterWith := func(b *testing.B, logger *slogx.Logger) {
+		b.Helper()
+
 		b.Run("LogAfterWith", func(b *testing.B) {
 			b.Run("TwoAndThreeAttrs", func(b *testing.B) {
 				logger := logger.With(slog.String("a", "av"), slog.String("b", "bv"))
@@ -159,6 +175,8 @@ func benchmarkSLogXLogger(b *testing.B, longTerm bool) {
 	}
 
 	testLogAfterWithLongTerm := func(b *testing.B, logger *slogx.Logger) {
+		b.Helper()
+
 		b.Run("LogAfterWith", func(b *testing.B) {
 			b.Run("TwoAndThreeAttrs", func(b *testing.B) {
 				logger := logger.WithLongTerm(slog.String("a", "av"), slog.String("b", "bv"))
@@ -185,6 +203,8 @@ func benchmarkSLogXLogger(b *testing.B, longTerm bool) {
 	}
 
 	testAllForLogger := func(b *testing.B, logger *slogx.Logger) {
+		b.Helper()
+
 		testEnabled(b, logger)
 		testLogAttrs(b, logger)
 		if longTerm {
@@ -199,6 +219,8 @@ func benchmarkSLogXLogger(b *testing.B, longTerm bool) {
 	}
 
 	testWithSource := func(b *testing.B, handler slog.Handler, enabled bool) {
+		b.Helper()
+
 		name := "WithSource"
 		if !enabled {
 			name = "WithoutSource"
@@ -219,6 +241,8 @@ func benchmarkSLogXLogger(b *testing.B, longTerm bool) {
 	}
 
 	testAllForHandler := func(b *testing.B, handler slog.Handler) {
+		b.Helper()
+
 		testWithSource(b, handler, false)
 		testWithSource(b, handler, true)
 	}
@@ -244,6 +268,8 @@ func benchmarkSLogXLogger(b *testing.B, longTerm bool) {
 
 func benchmarkSLogLogger(b *testing.B) {
 	testEnabled := func(b *testing.B, logger *slog.Logger) {
+		b.Helper()
+
 		b.Run("Enabled", func(b *testing.B) {
 			b.ResetTimer()
 			for i := 0; i != b.N; i++ {
@@ -253,6 +279,8 @@ func benchmarkSLogLogger(b *testing.B) {
 	}
 
 	testLogAttrs := func(b *testing.B, logger *slog.Logger) {
+		b.Helper()
+
 		b.Run("LogAttrs", func(b *testing.B) {
 			b.Run("NoAttrs", func(b *testing.B) {
 				b.ResetTimer()
@@ -270,6 +298,8 @@ func benchmarkSLogLogger(b *testing.B) {
 	}
 
 	testWith := func(b *testing.B, logger *slog.Logger) {
+		b.Helper()
+
 		b.Run("With", func(b *testing.B) {
 			b.Run("ThreeAttrs", func(b *testing.B) {
 				b.ResetTimer()
@@ -287,6 +317,8 @@ func benchmarkSLogLogger(b *testing.B) {
 	}
 
 	testWithAndLog := func(b *testing.B, logger *slog.Logger) {
+		b.Helper()
+
 		b.Run("WithAndLog", func(b *testing.B) {
 			b.Run("TwoAndThreeAttrs", func(b *testing.B) {
 				b.ResetTimer()
@@ -313,6 +345,8 @@ func benchmarkSLogLogger(b *testing.B) {
 	}
 
 	testLogAfterWith := func(b *testing.B, logger *slog.Logger) {
+		b.Helper()
+
 		b.Run("LogAfterWith", func(b *testing.B) {
 			b.Run("TwoAndThreeAttrs", func(b *testing.B) {
 				logger := logger.With(slog.String("a", "av"), slog.String("b", "bv"))
@@ -339,6 +373,8 @@ func benchmarkSLogLogger(b *testing.B) {
 	}
 
 	testAllForLogger := func(b *testing.B, logger *slog.Logger) {
+		b.Helper()
+
 		testEnabled(b, logger)
 		testLogAttrs(b, logger)
 		testWith(b, logger)
@@ -347,6 +383,8 @@ func benchmarkSLogLogger(b *testing.B) {
 	}
 
 	testAllForHandler := func(b *testing.B, handler slog.Handler) {
+		b.Helper()
+
 		b.Run("WithSource", func(b *testing.B) {
 			b.Run("Unwrapped", func(b *testing.B) {
 				logger := slog.New(handler)
@@ -405,7 +443,7 @@ func (h *testHandlerWrapper) Enabled(ctx context.Context, level slog.Level) bool
 }
 
 func (h *testHandlerWrapper) Handle(ctx context.Context, record slog.Record) error {
-	return h.base.Handle(ctx, record)
+	return h.base.Handle(ctx, record) //nolint:wrapcheck // this error don't need to be wrapped
 }
 
 func (h *testHandlerWrapper) WithAttrs(attrs []slog.Attr) slog.Handler {

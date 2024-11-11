@@ -1,7 +1,7 @@
 package mock
 
-type cloner interface {
-	clone() any
+type anyCloner interface {
+	cloneAny() any
 }
 
 type timeRemover interface {

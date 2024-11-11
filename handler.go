@@ -68,6 +68,7 @@ func (h *tweakedHandler) Enabled(ctx context.Context, level slog.Level) bool {
 func (h *tweakedHandler) Handle(ctx context.Context, record slog.Record) error {
 	if len(h.dynamicAttrs) != 0 {
 		record = record.Clone()
+
 		for _, attr := range h.dynamicAttrs {
 			if attr := attr(ctx); !attr.Equal(slog.Attr{}) {
 				record.AddAttrs(attr)

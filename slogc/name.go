@@ -45,6 +45,4 @@ func NameAttr(key string) func(ctx context.Context) slog.Attr {
 
 // ---
 
-var (
-	contextKeyName int
-)
+var contextKeyName int

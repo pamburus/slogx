@@ -81,6 +81,4 @@ func Log(ctx context.Context, level slog.Level, msg string, attrs ...slog.Attr) 
 
 // ---
 
-var (
-	contextKeyLogger int
-)
+var contextKeyLogger int

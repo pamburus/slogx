@@ -3,13 +3,12 @@ package slogc_test
 import (
 	"context"
 	"log/slog"
+	"testing"
 
 	. "github.com/pamburus/go-tst/tst"
 	"github.com/pamburus/slogx"
 	"github.com/pamburus/slogx/internal/mock"
 	"github.com/pamburus/slogx/slogc"
-
-	"testing"
 )
 
 func TestLogger(tt *testing.T) {
@@ -43,7 +42,7 @@ func TestLogger(tt *testing.T) {
 		cl := mock.NewCallLog()
 		handler := mock.NewHandler(cl)
 		logger := slogx.NewContextLogger(handler).WithSource(false)
-		ctx := slogc.New(nil, logger)
+		ctx := slogc.New(context.Background(), logger)
 
 		t.Run(name, func(t Test) {
 			fn(ctx, cl, t)
