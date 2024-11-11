@@ -20,6 +20,7 @@ func DurationAsHMS(buf []byte, value time.Duration, precision int) []byte {
 	if hours < 10 {
 		buf = append(buf, '0')
 	}
+
 	buf = strconv.AppendInt(buf, hours, 10)
 
 	buf = append(buf, ':')
@@ -27,6 +28,7 @@ func DurationAsHMS(buf []byte, value time.Duration, precision int) []byte {
 	if minutes < 10 {
 		buf = append(buf, '0')
 	}
+
 	buf = strconv.AppendInt(buf, minutes, 10)
 
 	buf = append(buf, ':')
@@ -34,6 +36,7 @@ func DurationAsHMS(buf []byte, value time.Duration, precision int) []byte {
 	if seconds < 10*time.Second {
 		buf = append(buf, '0')
 	}
+
 	buf = strconv.AppendFloat(buf, seconds.Seconds(), 'f', precision, 64)
 
 	return buf

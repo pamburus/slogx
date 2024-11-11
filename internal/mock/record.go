@@ -53,6 +53,4 @@ func recordAttrs(record slog.Record) []Attr {
 
 // ---
 
-var (
-	_ cloner = (*Record)(nil)
-)
+var _ cloner = (*Record)(nil)

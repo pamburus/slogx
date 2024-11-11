@@ -7,6 +7,8 @@ github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/pamburus/ansitty v0.1.0 h1:Vykv3/oPP3vW1awb3O50qcWnrrSDBFsibMx2fd5BseY=
 github.com/pamburus/ansitty v0.1.0/go.mod h1:qxoK4OCaH0XopfYUxuiudg6zt2cAHHXJAoKONizWqhY=
+github.com/pamburus/go-tst v0.6.0 h1:WHFO70QBYD/TWNNGGqNrJNZLcgRmhFMbq6J3Nc+fTxQ=
+github.com/pamburus/go-tst v0.6.0/go.mod h1:P35nV/vy/BUCDQSfqyQnFp4YsAdIezb18l9o7DvSB9E=
 github.com/pmezard/go-difflib v1.0.0 h1:4DBwDE0NGyQoBHbLQYPwSUPoCMWR5BEzIk/f1lZbAQM=
 github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=
 github.com/stretchr/objx v0.1.0/go.mod h1:HFkY916IF+rwdDfMAkV7OtwuqBVzrE8GR6GFx+wExME=

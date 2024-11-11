@@ -10,7 +10,7 @@ import (
 type Buffer []byte
 
 // Write implements io.Writer.
-func (b *Buffer) Write(p []byte) (n int, err error) {
+func (b *Buffer) Write(p []byte) (int, error) {
 	*b = append(*b, p...)
 
 	return len(p), nil

@@ -87,7 +87,6 @@ func (s *handleState) addAttrToExpand(attr slog.Attr) {
 	if w > s.expandingKeysWidth {
 		s.expandingKeysWidth = w
 	}
-
 }
 
 type attrToExpand struct {

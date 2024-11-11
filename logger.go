@@ -5,6 +5,7 @@
 package slogx
 
 import (
+	"cmp"
 	"context"
 	"log/slog"
 	"runtime"
@@ -369,9 +370,7 @@ func (l *commonLogger) setLongTerm() {
 }
 
 func (l *commonLogger) log(ctx context.Context, level slog.Level, msg string, attrs []slog.Attr, skip int) {
-	if ctx == nil {
-		ctx = context.Background()
-	}
+	ctx = cmp.Or(ctx, context.Background())
 
 	if !l.handler.Enabled(ctx, level) {
 		return

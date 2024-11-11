@@ -36,7 +36,7 @@ func (r AttrPack) Len() int {
 
 // Enumerate calls f on each Attr in the AttrPack.
 func (r AttrPack) Enumerate(f func(slog.Attr) bool) {
-	for i := 0; i < r.nFront; i++ {
+	for i := range r.nFront {
 		if !f(r.front[i]) {
 			return
 		}

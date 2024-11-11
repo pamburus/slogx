@@ -65,6 +65,8 @@ func (h *Handler) Enabled(ctx context.Context, level slog.Level) bool {
 }
 
 // Handle writes the log message to the Writer.
+//
+//nolint:gocognit,gocyclo // TODO: Refactor this function.
 func (h *Handler) Handle(ctx context.Context, record slog.Record) error {
 	if !h.Enabled(ctx, record.Level) {
 		return nil
@@ -1009,9 +1011,11 @@ func levelIndex(level slog.Level) int {
 
 // ---
 
-const hexDigits = "0123456789abcdef"
-const spaces = "                                                                "
-const numLevels = themes.NumLevels
-const numEmbeddedGroups = 4
+const (
+	hexDigits         = "0123456789abcdef"
+	spaces            = "                                                                "
+	numLevels         = themes.NumLevels
+	numEmbeddedGroups = 4
+)
 
 var _ slog.Handler = (*Handler)(nil)
