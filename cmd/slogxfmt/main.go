@@ -6,6 +6,8 @@ import (
 	"io"
 	"log/slog"
 	"os"
+	"strings"
+	"time"
 
 	"github.com/alexflint/go-arg"
 	"github.com/pamburus/ansitty"
@@ -23,7 +25,7 @@ type args struct {
 	Level        string   `arg:"-l,--level" help:"Log level filter [debug|info|warn|error]." default:"debug"`
 	Output       string   `arg:"-o" help:"Output file."`
 	OutputFormat string   `arg:"--output-format" help:"Output format."`
-	TimeFormat   string   `arg:"--time-format" help:"Time format." default:"Jan 02 15:04:05.000"`
+	TimeFormat   string   `arg:"--time-format" help:"Time format."`
 	Theme        string   `arg:"--theme,env:SLOGXFMT_THEME" help:"Theme." default:"fancy"`
 	Expansion    string   `arg:"-x,--expansion" help:"Attribute expansion control [auto|always|never|low|medium|high]." default:"auto"`
 	Inputs       []string `arg:"positional" help:"Input files to process."`
@@ -102,6 +104,23 @@ func run() error {
 		return fmt.Errorf("unknown theme: %s", args.Theme)
 	}
 
+	switch strings.ToLower(args.TimeFormat) {
+	case "iso":
+		args.TimeFormat = time.RFC3339Nano
+	case "stamp":
+		args.TimeFormat = time.Stamp
+	case "stampmilli":
+		args.TimeFormat = time.StampMilli
+	case "stampmicro":
+		args.TimeFormat = time.StampMicro
+	case "stampnano":
+		args.TimeFormat = time.StampNano
+	case "rfc3339":
+		args.TimeFormat = time.RFC3339
+	case "rfc3339nano":
+		args.TimeFormat = time.RFC3339Nano
+	}
+
 	handler := func(level slog.Level, color slogtext.ColorSetting) pipeline.HandlerFactory {
 		if args.OutputFormat == "json" {
 			return func(w io.Writer) slog.Handler {
@@ -118,16 +137,29 @@ func run() error {
 					Level:     level,
 					AddSource: true,
 					ReplaceAttr: func(groups []string, a slog.Attr) slog.Attr {
-						if len(groups) == 0 && a.Key == slog.SourceKey {
-							switch a.Value.Kind() {
-							case slog.KindAny:
-								switch v := a.Value.Any().(type) {
-								case *slog.Source:
-									if v.File == "" {
-										return slog.Attr{}
-									}
+						if len(groups) == 0 {
+							switch a.Key {
+							case slog.SourceKey:
+								switch a.Value.Kind() {
+								case slog.KindAny:
+									switch v := a.Value.Any().(type) {
+									case *slog.Source:
+										if v.File == "" {
+											return slog.Attr{}
+										}
 
-									return slog.String(slog.SourceKey, fmt.Sprintf("%s:%d", v.File, v.Line))
+										return slog.String(slog.SourceKey, fmt.Sprintf("%s:%d", v.File, v.Line))
+									}
+								}
+							case slog.TimeKey:
+								if args.TimeFormat != "" {
+									switch a.Value.Kind() {
+									case slog.KindTime:
+										switch v := a.Value.Any().(type) {
+										case time.Time:
+											return slog.String(slog.TimeKey, v.Format(args.TimeFormat))
+										}
+									}
 								}
 							}
 						}

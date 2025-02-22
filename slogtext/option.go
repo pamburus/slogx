@@ -73,7 +73,9 @@ func WithTimeFormat(format string) Option {
 // WithTimeEncodeFunc sets the time encode function for the Handler.
 func WithTimeEncodeFunc(f TimeEncodeFunc) Option {
 	return func(o *options) {
-		o.encodeTimestamp = f
+		if f != nil {
+			o.encodeTimestamp = f
+		}
 	}
 }
 
@@ -85,7 +87,9 @@ func WithTimeValueFormat(format string) Option {
 // WithTimeValueEncodeFunc sets the time encode function for the Handler.
 func WithTimeValueEncodeFunc(f TimeEncodeFunc) Option {
 	return func(o *options) {
-		o.encodeTimeValue = f
+		if f != nil {
+			o.encodeTimeValue = f
+		}
 	}
 }
 
@@ -206,8 +210,8 @@ func defaultOptions() options {
 	return options{
 		leveler:         slog.LevelInfo,
 		enableColor:     ColorNever,
-		encodeTimestamp: timeFormat(time.StampMilli),
-		encodeTimeValue: timeFormat(time.StampMilli),
+		encodeTimestamp: timeFormat(time.StampMicro),
+		encodeTimeValue: timeFormat(time.StampMicro),
 		encodeDuration:  DurationAsSeconds(),
 		encodeSource:    SourceShort(),
 		sourceKey:       slog.SourceKey,
@@ -230,6 +234,10 @@ func (o options) with(opts []Option) options {
 // ---
 
 func timeFormat(layout string) TimeEncodeFunc {
+	if layout == "" {
+		return nil
+	}
+
 	return func(buf []byte, t time.Time) []byte {
 		return t.AppendFormat(buf, layout)
 	}
